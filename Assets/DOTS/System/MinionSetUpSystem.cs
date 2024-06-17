@@ -66,31 +66,40 @@ partial class MinionSetUpSystem : SystemBase
                     minionBuffer = MinionBuffer
                 }.ScheduleParallel(MinionQuery, Dependency).Complete();
 
-            }// IjobEntity 에서 MinionData.isSpawnedPart 확인후 생성한 다음 참조로 변경
-            // ===== +  원래는 ClipIndex 필요없고 스폰 , 부모지정만 하고  비활성화 시킨후 / 다시 활성화 시킬때 위치 지정
+            }
 
             ecb.Playback(EntityManager);
-
+            ecb.Dispose();
+            
             {
+                ecb = new EntityCommandBuffer(Allocator.TempJob);
+
+                var partQuery = GetEntityQuery(typeof(MinionPartParent));
+
+                Debug.Log($"part Query : {partQuery.CalculateEntityCount()}");
+
+                var partentities = partQuery.ToEntityArray(Allocator.TempJob);
+
                 for (int i = 0; i < MinionEntity.Length; i++)
                 {
-                    var spawnedPart = new NativeArray<Entity>(MinionDatas[i].Parts, Allocator.TempJob);
+                    var spawnedPart = Entities.WithSharedComponentFilter
+                        (
+                            new MinionPartParent { parent = MinionEntity[i] }
+                        ).ToQuery().ToEntityArray(Allocator.TempJob);
 
-                    var selectHandle = new SelectNeedSetupJob()
+                    new PartSpawnSetupJob()
                     {
                         ecb = ecb.AsParallelWriter(),
                         targetParent = MinionEntity[i],
                         spawnedEntity = spawnedPart
+                    }.ScheduleParallel(Dependency).Complete();//DynamicBuffer<MinionPart> 에 스폰된 엔티티로 변경시키고 , 비활성화 시킴
 
-                    }.ScheduleParallel(Dependency);
-
-                    new DespawnJob()
-                    {
-                        ecb = ecb.AsParallelWriter(),
-                        targetParent = MinionEntity[i],
-                        spawnedEntity = spawnedPart
-                    }.ScheduleParallel(selectHandle).Complete();
+                    spawnedPart.Dispose();
                 }
+
+                partentities.Dispose();
+                //partParents.Dispose();
+                ecb.Playback(EntityManager);
             }
 
             ecb.Dispose();
@@ -154,8 +163,9 @@ partial class MinionSetUpSystem : SystemBase
                     trans.Scale = 0.2f;// ========= 임시
                     ecb.SetComponent(index, spawned, trans);//Work
 
-                    ecb.AddComponent(index, spawned, new MinionPartTag());
-                    ecb.AddComponent(index, spawned, new Parent { Value = entity});
+                    //ecb.AddComponent(index, spawned, new MinionPartTag());
+                    //ecb.AddComponent(index, spawned, new Parent { Value = entity});
+                    ecb.AddSharedComponent(index, spawned, new MinionPartParent { parent = entity });
                 }
 
                 minionData.isSpawnedPart = true;
@@ -163,22 +173,26 @@ partial class MinionSetUpSystem : SystemBase
         }
     }
 
-    public partial struct SelectNeedSetupJob : IJobEntity
+    public partial struct SelectNeedSetupJob : IJobParallelFor
     {
         public EntityCommandBuffer.ParallelWriter ecb;
+        public NativeArray<Entity> entities;
+        public NativeArray<Parent> parents;
+
         public Entity targetParent;
         public NativeArray<Entity> spawnedEntity;
 
-        public void Execute(Entity entity, [EntityIndexInQuery] int index, MinionPartTag partTag, Parent parent)
+        //public void Execute(Entity entity, [EntityIndexInQuery] int index, MinionPartTag partTag, Parent parent)
+        public void Execute(int index)
         {
-            if (Entity.Equals(targetParent, parent.Value))
+            if (Entity.Equals(targetParent, parents[index].Value))
             {
-                spawnedEntity[index] = entity;
+                spawnedEntity[index] = entities[index];
             }
         }
     }
 
-    public partial struct DespawnJob : IJobEntity
+    public partial struct PartSpawnSetupJob : IJobEntity
     {
         public EntityCommandBuffer.ParallelWriter ecb;
         [ReadOnly] public Entity targetParent;
