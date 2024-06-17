@@ -31,7 +31,7 @@ class CharacterAuthoringBaker : Baker<CharacterAuthoring>
                     //MinionAnimationDB.Instance.GetSpawnObj(authoring.DefaultAnimation, i);
 
 
-                MinionParts.Add(new MinionPart { Part = spawnEntity });
+                MinionParts.Add(new MinionPart { Part = spawnEntity , BodyIndex = i});
             }
 
 
@@ -43,7 +43,8 @@ class CharacterAuthoringBaker : Baker<CharacterAuthoring>
                         AvaterName = targetAvatar.name,
                         isSpawnedPart = false,
                         TestDefaultObj = GetEntity(MinionAnimationDB.Instance.DefaultObject, TransformUsageFlags.Renderable),
-                        Parts = targetAvatar.humanDescription.skeleton.Length
+                        Parts = targetAvatar.humanDescription.skeleton.Length,
+                        DisableCounter = -1
                     }
                 );
         }

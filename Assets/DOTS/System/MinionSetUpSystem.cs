@@ -12,6 +12,7 @@ using System;
 using System.Reflection;
 using Unity.Jobs;
 using Unity.Transforms;
+using Unity.Mathematics;
 
 partial class MinionSetUpSystem : SystemBase
 {
@@ -45,31 +46,51 @@ partial class MinionSetUpSystem : SystemBase
         base.OnStartRunning();
 
         {
-            var MinionEntity = GetEntityQuery(typeof(MinionData)).ToEntityArray(Allocator.TempJob);
-            var MinionDatas = GetEntityQuery(typeof(MinionData))
-                .ToComponentDataArray<MinionData>(Allocator.TempJob);
-
-           
+            var MinionQuery = GetEntityQuery(typeof(MinionData));
+            var MinionEntity = MinionQuery.ToEntityArray(Allocator.TempJob);
+            var MinionDatas = MinionQuery.ToComponentDataArray<MinionData>(Allocator.TempJob);
 
             var ecb = new EntityCommandBuffer(Allocator.TempJob);
 
-            int ClipIndex = 0;
+            for (int i = 0; i < MinionEntity.Length; i++)
             {
-                int partLength = MinionDatas[ClipIndex].Parts;
+                int partLength = MinionDatas[i].Parts;
 
-                //var temp = EntityManager.Instantiate(MinionDatas[ClipIndex].TestDefaultObj);//Work
-
-                var MinionBuffer = SystemAPI.GetBuffer<MinionPart>(MinionEntity[ClipIndex]).ToNativeArray(Allocator.TempJob);
+                var MinionBuffer = SystemAPI.GetBuffer<MinionPart>(MinionEntity[i]).ToNativeArray(Allocator.TempJob);
 
                 new PartSpawnJob()
                 {
                     ecb = ecb.AsParallelWriter(),
+                    ClipIndex = i,//=================== (임시) 기본 에니메이션
                     MinionDatas = MinionDatas,
                     minionBuffer = MinionBuffer
-                }.Schedule(partLength, 32, Dependency).Complete();
+                }.ScheduleParallel(MinionQuery, Dependency).Complete();
 
+            }// IjobEntity 에서 MinionData.isSpawnedPart 확인후 생성한 다음 참조로 변경
+            // ===== +  원래는 ClipIndex 필요없고 스폰 , 부모지정만 하고  비활성화 시킨후 / 다시 활성화 시킬때 위치 지정
 
-                ecb.Playback(EntityManager);
+            ecb.Playback(EntityManager);
+
+            {
+                for (int i = 0; i < MinionEntity.Length; i++)
+                {
+                    var spawnedPart = new NativeArray<Entity>(MinionDatas[i].Parts, Allocator.TempJob);
+
+                    var selectHandle = new SelectNeedSetupJob()
+                    {
+                        ecb = ecb.AsParallelWriter(),
+                        targetParent = MinionEntity[i],
+                        spawnedEntity = spawnedPart
+
+                    }.ScheduleParallel(Dependency);
+
+                    new DespawnJob()
+                    {
+                        ecb = ecb.AsParallelWriter(),
+                        targetParent = MinionEntity[i],
+                        spawnedEntity = spawnedPart
+                    }.ScheduleParallel(selectHandle).Complete();
+                }
             }
 
             ecb.Dispose();
@@ -81,7 +102,7 @@ partial class MinionSetUpSystem : SystemBase
     {
 
     }
-
+    /*
     //[BurstCompile]
     public partial struct PartSpawnJob : IJobParallelFor
     {
@@ -95,12 +116,89 @@ partial class MinionSetUpSystem : SystemBase
         {
             //ref var parts = ref MinionDatas[ClipIndex].MinionParts.Value.Parts;
 
+            if (Entity.Equals(Entity.Null, minionBuffer[index].Part))
+                return;
+
             var spawned = ecb.Instantiate(index, minionBuffer[index].Part);//MinionDatas[ClipIndex].TestDefaultObj
 
             var trans = MinionAnimationDB.Instance.GetPartTransform(ClipIndex, index, 0);
-            trans.Scale = 0.2f;
+            trans.Scale = 0.2f;// ========= 임시
+
+            // ++++++++  부모 엔티티 저장
 
             ecb.SetComponent(index, spawned, trans);
+        }
+    }*/
+
+    //[BurstCompile]
+    public partial struct PartSpawnJob : IJobEntity
+    {
+        public EntityCommandBuffer.ParallelWriter ecb;
+        [ReadOnly] public int ClipIndex;
+        [ReadOnly] public NativeArray<MinionData> MinionDatas;
+
+        [ReadOnly] public NativeArray<MinionPart> minionBuffer;
+
+        public void Execute(Entity entity, [EntityIndexInQuery] int index , ref MinionData minionData)
+        {
+            //if (Entity.Equals(Entity.Null, minionBuffer[index].Part))
+            //    return;
+
+            if (MinionDatas[index].isSpawnedPart == false)
+            {
+                for (int i = 0; i < minionBuffer.Length; i++)
+                {
+                    var spawned = ecb.Instantiate(index, minionBuffer[i].Part);
+
+                    var trans = MinionAnimationDB.Instance.GetPartTransform(ClipIndex, i, 0);
+                    trans.Scale = 0.2f;// ========= 임시
+                    ecb.SetComponent(index, spawned, trans);//Work
+
+                    ecb.AddComponent(index, spawned, new MinionPartTag());
+                    ecb.AddComponent(index, spawned, new Parent { Value = entity});
+                }
+
+                minionData.isSpawnedPart = true;
+            }
+        }
+    }
+
+    public partial struct SelectNeedSetupJob : IJobEntity
+    {
+        public EntityCommandBuffer.ParallelWriter ecb;
+        public Entity targetParent;
+        public NativeArray<Entity> spawnedEntity;
+
+        public void Execute(Entity entity, [EntityIndexInQuery] int index, MinionPartTag partTag, Parent parent)
+        {
+            if (Entity.Equals(targetParent, parent.Value))
+            {
+                spawnedEntity[index] = entity;
+            }
+        }
+    }
+
+    public partial struct DespawnJob : IJobEntity
+    {
+        public EntityCommandBuffer.ParallelWriter ecb;
+        [ReadOnly] public Entity targetParent;
+        [ReadOnly] public NativeArray<Entity> spawnedEntity;
+
+        public void Execute(Entity entity, [EntityIndexInQuery] int index , ref DynamicBuffer<MinionPart> parts)
+        {
+            if (Entity.Equals(targetParent, entity))
+            {
+                for (int i = 0; i < spawnedEntity.Length; i++)
+                {
+                    parts[i] = new MinionPart
+                    {
+                        Part = spawnedEntity[i],
+                        BodyIndex = i
+                    };
+
+                    ecb.SetEnabled(index, spawnedEntity[i], false);
+                }
+            }
         }
     }
 }
