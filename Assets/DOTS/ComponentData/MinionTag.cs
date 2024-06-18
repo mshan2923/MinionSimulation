@@ -2,7 +2,6 @@ using Unity.Collections;
 using Unity.Entities;
 
 public struct MinionTag : IComponentData {}
-[System.Obsolete] public struct MinionPartTag : IComponentData {}
 
 public struct MinionPartParent : ISharedComponentData
 {

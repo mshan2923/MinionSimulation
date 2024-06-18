@@ -44,7 +44,7 @@ partial class MinionSetUpSystem : SystemBase
     protected override void OnStartRunning()
     {
         base.OnStartRunning();
-
+        /*
         {
             var MinionQuery = GetEntityQuery(typeof(MinionData));
             var MinionEntity = MinionQuery.ToEntityArray(Allocator.TempJob);
@@ -74,11 +74,11 @@ partial class MinionSetUpSystem : SystemBase
             {
                 ecb = new EntityCommandBuffer(Allocator.TempJob);
 
-                var partQuery = GetEntityQuery(typeof(MinionPartParent));
+                //var partQuery = GetEntityQuery(typeof(MinionPartParent));
 
-                Debug.Log($"part Query : {partQuery.CalculateEntityCount()}");
+                //Debug.Log($"part Query : {partQuery.CalculateEntityCount()}");
 
-                var partentities = partQuery.ToEntityArray(Allocator.TempJob);
+                //var partentities = partQuery.ToEntityArray(Allocator.TempJob);
 
                 for (int i = 0; i < MinionEntity.Length; i++)
                 {
@@ -97,15 +97,71 @@ partial class MinionSetUpSystem : SystemBase
                     spawnedPart.Dispose();
                 }
 
-                partentities.Dispose();
+                //partentities.Dispose();
                 //partParents.Dispose();
                 ecb.Playback(EntityManager);
             }
+
+            // ------ ++ IjobEntity Aspect으로 옮기기
 
             ecb.Dispose();
             MinionEntity.Dispose();
             MinionDatas.Dispose();
         }
+        */
+
+        var MinionQuery = GetEntityQuery(typeof(MinionData));
+        var MinionEntity = MinionQuery.ToEntityArray(Allocator.TempJob);
+        var aspects = new NativeArray<MinionAspect>(MinionEntity.Length, Allocator.TempJob);
+        for(int i = 0; i < MinionEntity.Length; i++)
+        {
+            aspects[i] = SystemAPI.GetAspect<MinionAspect>(MinionEntity[i]);
+        }
+
+        var ecb = new EntityCommandBuffer(Allocator.TempJob);
+
+        var spawnHandle = Dependency;
+        foreach (var v in aspects)
+        {
+            var lHandle = new MinionAspect.PartSpawnJob_Aspect()
+            {
+                ecb = ecb.AsParallelWriter(),
+                minionBuffer = v.minionParts.AsNativeArray()
+            }.ScheduleParallel(Dependency);
+            spawnHandle = JobHandle.CombineDependencies(spawnHandle, lHandle);
+        }
+        spawnHandle.Complete();
+        ecb.Playback(EntityManager);
+        ecb.Dispose();
+
+
+        ecb = new EntityCommandBuffer(Allocator.TempJob);
+        spawnHandle = Dependency;
+        foreach (var v in aspects)
+        {
+            var spawnedPart = Entities.WithSharedComponentFilter
+                        (
+                            new MinionPartParent { parent = v.entity }
+                        ).ToQuery().ToEntityArray(Allocator.TempJob);
+
+            var lHandle = new MinionAspect.PartSpawnSetupJob()
+            {
+                ecb = ecb.AsParallelWriter(),
+                targetParent = v.entity,
+                //targetAspect = v,
+                spawnedEntity = spawnedPart
+            }.ScheduleParallel(spawnHandle);
+            spawnHandle = JobHandle.CombineDependencies(spawnHandle, lHandle);
+
+            spawnedPart.Dispose(lHandle);//----job 끝난후 할당 해제
+        }
+        spawnHandle.Complete();
+        ecb.Playback(EntityManager);
+        ecb.Dispose();
+
+
+        MinionEntity.Dispose();
+        aspects.Dispose();
     }
     protected override void OnUpdate()
     {
@@ -148,7 +204,7 @@ partial class MinionSetUpSystem : SystemBase
 
         [ReadOnly] public NativeArray<MinionPart> minionBuffer;
 
-        public void Execute(Entity entity, [EntityIndexInQuery] int index , ref MinionData minionData)
+        public void Execute(Entity entity, [EntityIndexInQuery] int index , in MinionData minionData)
         {
             //if (Entity.Equals(Entity.Null, minionBuffer[index].Part))
             //    return;
@@ -167,8 +223,6 @@ partial class MinionSetUpSystem : SystemBase
                     //ecb.AddComponent(index, spawned, new Parent { Value = entity});
                     ecb.AddSharedComponent(index, spawned, new MinionPartParent { parent = entity });
                 }
-
-                minionData.isSpawnedPart = true;
             }
         }
     }
@@ -198,7 +252,7 @@ partial class MinionSetUpSystem : SystemBase
         [ReadOnly] public Entity targetParent;
         [ReadOnly] public NativeArray<Entity> spawnedEntity;
 
-        public void Execute(Entity entity, [EntityIndexInQuery] int index , ref DynamicBuffer<MinionPart> parts)
+        public void Execute(Entity entity, [EntityIndexInQuery] int index, ref MinionData minionData, ref DynamicBuffer<MinionPart> parts)
         {
             if (Entity.Equals(targetParent, entity))
             {
@@ -212,6 +266,8 @@ partial class MinionSetUpSystem : SystemBase
 
                     ecb.SetEnabled(index, spawnedEntity[i], false);
                 }
+
+                minionData.isSpawnedPart = true;
             }
         }
     }
