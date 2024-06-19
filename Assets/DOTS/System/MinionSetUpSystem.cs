@@ -14,6 +14,7 @@ using Unity.Jobs;
 using Unity.Transforms;
 using Unity.Mathematics;
 using static UnityEngine.Rendering.VolumeComponent;
+using Unity.VisualScripting;
 
 partial class MinionSetUpSystem : SystemBase
 {
@@ -134,15 +135,10 @@ partial class MinionSetUpSystem : SystemBase
         }
         spawnHandle.Complete();*/
 
-        int[] partAmounts = new int[aspects.Length];
-        for (int i = 0; i < aspects.Length; i++)
-        {
-            aspects[i] = SystemAPI.GetAspect<MinionAspect>(MinionEntity[i]);
-            partAmounts[i] = aspects[i].PartAmount;
-        }
-
         for (int v = 0; v < MinionEntity.Length; v++)
         {
+            aspects[v] = SystemAPI.GetAspect<MinionAspect>(MinionEntity[v]);
+
             if (aspects[v].IsSpawnedPart == false)
             {
                 foreach (var i in aspects[v].minionParts)
@@ -159,46 +155,54 @@ partial class MinionSetUpSystem : SystemBase
 
         //ecb = new EntityCommandBuffer(Allocator.TempJob);
         spawnHandle = Dependency;
-        int spanwPartIndex = 0;
+
+        var allPartQuery = Entities.WithSharedComponentFilter(new MinionPartParent { }).ToQuery();
+        //Debug.Log($"All Spawned Query : {allPartQuery.CalculateEntityCount()}");
 
         for (int i = 0; i < aspects.Length; i++)
         {
             var v = aspects[i];
-            var spawnedPart = Entities.WithSharedComponentFilter
-                        (
-                            new MinionPartParent { parent = v.entity }
-                        ).ToQuery().ToEntityArray(Allocator.TempJob);//====XX 다른 캐릭터꺼랑 혼합 되진 않지만 그래도
 
-            var queryTemp = Entities.WithSharedComponentFilter
-                        (
-                            new MinionPartParent { parent = v.entity }
-                        ).ToQuery();
-            queryTemp.SetSharedComponentFilter(new MinionPartParent { parent = v.entity });
-            Debug.Log($"Query Temp / Spawned Part : {queryTemp.CalculateEntityCount()} / {spawnedPart.Length}");
-            var spawnedTemp = queryTemp.ToEntityArray(Allocator.Temp);
-            Debug.Log($"queryTemp ==> {EntityManager.GetSharedComponent<MinionPartParent>(spawnedTemp[0]).parent} ~ {EntityManager.GetSharedComponent<MinionPartParent>(spawnedTemp[^1]).parent}");
+            var spawnedQuery = allPartQuery;
+            spawnedQuery.SetSharedComponentFilter(new MinionPartParent { parent = v.entity });
 
+            var spawnedPart = spawnedQuery.ToEntityArray(Allocator.TempJob);
+            //Debug.Log($"Spawned Part : {spawnedPart.Length}");
 
-            var lHandle = new MinionAspect.PartSpawnSetupJob_Temp()
+            var lHandle = new MinionAspect.PartSpawnSetupJob_Ref()
             {
                 //ecb = ecb.AsParallelWriter(),
                 targetParent = v.entity,
                 //targetAspect = v,
-                spawnedEntity = spawnedPart,
-                PartLength = partAmounts[i],
-                startPartIndex = spanwPartIndex
+                spawnedEntity = spawnedPart
             }.ScheduleParallel(spawnHandle);
             spawnHandle = JobHandle.CombineDependencies(spawnHandle, lHandle);
 
-            spanwPartIndex += partAmounts[i];
             spawnedPart.Dispose(lHandle);//----job 끝난후 할당 해제
-        }
+        }//SetUp
 
+        {
+            ecb = new EntityCommandBuffer(Allocator.TempJob);
 
-        spawnHandle.Complete();
-        //ecb.Playback(EntityManager);
-        //ecb.Dispose();
+            allPartQuery.ResetFilter();
 
+            var fillted = new NativeList<Entity>(Allocator.TempJob);
+            MinionAspect.GetSharedMutiplyFillter(allPartQuery, MinionEntity, ref fillted);
+            //Debug.Log($"Fillted : {fillted.Length}");
+
+            var toggleHandle = new MinionAspect.ToggleJob()
+            {
+                ecb = ecb.AsParallelWriter(),
+                spawnedEntity = fillted,
+                value = false
+            }.Schedule(fillted.Length, 32, spawnHandle);
+
+            toggleHandle.Complete();
+            ecb.Playback(EntityManager);
+
+            ecb.Dispose();
+            fillted.Dispose(toggleHandle);
+        }//Toggle
 
         MinionEntity.Dispose();
         aspects.Dispose();

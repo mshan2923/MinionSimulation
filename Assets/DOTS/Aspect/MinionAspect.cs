@@ -114,6 +114,35 @@ public readonly partial struct MinionAspect : IAspect
     }
     #endregion
 
+    public static void GetSharedMutiplyFillter(EntityQuery query, NativeArray<Entity> FillterShared,
+    ref NativeList<Entity> FilltedEntities)
+    {
+        foreach (var v in FillterShared)
+        {
+            var tempQuery = query;
+            tempQuery.SetSharedComponentFilter(new MinionPartParent { parent = v});
+
+            var temp = tempQuery.ToEntityArray(Allocator.Temp);
+
+            FilltedEntities.AddRange(temp);
+
+            temp.Dispose();
+        }
+    }
+    public static void GetSharedMutiplyFillter<T>(EntityQuery query, NativeArray<T> FillterShared,
+        ref NativeList<Entity> FilltedEntities) where T : unmanaged, ISharedComponentData
+    {
+        foreach(var v in FillterShared)
+        {
+            var tempQuery = query;
+            tempQuery.SetSharedComponentFilter(v);
+
+            var temp = tempQuery.ToEntityArray(Allocator.Temp);
+
+            FilltedEntities.AddRange(temp);
+        }
+    }
+
     #region JobSystem
 
     [BurstCompile]
@@ -195,24 +224,22 @@ public readonly partial struct MinionAspect : IAspect
         }
     }
     [BurstCompile]
-    public partial struct PartSpawnSetupJob_Temp : IJobEntity
+    public partial struct PartSpawnSetupJob_Ref : IJobEntity
     {
         //public EntityCommandBuffer.ParallelWriter ecb;
         [ReadOnly] public Entity targetParent;
         //[NativeDisableUnsafePtrRestriction] public MinionAspect targetAspect;
         [ReadOnly] public NativeArray<Entity> spawnedEntity;
-        public int startPartIndex;
-        public int PartLength;
 
         public void Execute(Entity entity, [EntityIndexInQuery] int index, ref MinionData minionData, ref DynamicBuffer<MinionPart> parts)
         {
             if (targetParent == entity)//(Equals(targetParent, entity))
             {
-                for (int i = 0; i < PartLength; i++)
+                for (int i = 0; i < spawnedEntity.Length; i++)
                 {
                     parts[i] = new MinionPart
                     {
-                        Part = spawnedEntity[startPartIndex + i],
+                        Part = spawnedEntity[i],
                         BodyIndex = i
                     };
 
@@ -229,7 +256,7 @@ public readonly partial struct MinionAspect : IAspect
     public partial struct ToggleJob : IJobParallelFor
     {
         public EntityCommandBuffer.ParallelWriter ecb;
-        [ReadOnly] public NativeArray<Entity> spawnedEntity;
+        [ReadOnly] public NativeList<Entity> spawnedEntity;
         public bool value;
         public void Execute(int index)
         {
