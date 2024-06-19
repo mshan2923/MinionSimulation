@@ -13,6 +13,7 @@ using System.Reflection;
 using Unity.Jobs;
 using Unity.Transforms;
 using Unity.Mathematics;
+using static UnityEngine.Rendering.VolumeComponent;
 
 partial class MinionSetUpSystem : SystemBase
 {
@@ -113,51 +114,90 @@ partial class MinionSetUpSystem : SystemBase
         var MinionQuery = GetEntityQuery(typeof(MinionData));
         var MinionEntity = MinionQuery.ToEntityArray(Allocator.TempJob);
         var aspects = new NativeArray<MinionAspect>(MinionEntity.Length, Allocator.TempJob);
-        for(int i = 0; i < MinionEntity.Length; i++)
-        {
-            aspects[i] = SystemAPI.GetAspect<MinionAspect>(MinionEntity[i]);
-        }
+
 
         var ecb = new EntityCommandBuffer(Allocator.TempJob);
 
         var spawnHandle = Dependency;
+        /*
         foreach (var v in aspects)
         {
-            var lHandle = new MinionAspect.PartSpawnJob_Aspect()
+            
+            var lHandle = new MinionAspect.PartSpawnJob()
             {
                 ecb = ecb.AsParallelWriter(),
                 minionBuffer = v.minionParts.AsNativeArray()
-            }.ScheduleParallel(Dependency);
+            }.ScheduleParallel(Dependency);//================ IJobEntity가 아니라 IJobParrall 으로 전부 묶어서 하면?
+            
+
             spawnHandle = JobHandle.CombineDependencies(spawnHandle, lHandle);
         }
-        spawnHandle.Complete();
+        spawnHandle.Complete();*/
+
+        int[] partAmounts = new int[aspects.Length];
+        for (int i = 0; i < aspects.Length; i++)
+        {
+            aspects[i] = SystemAPI.GetAspect<MinionAspect>(MinionEntity[i]);
+            partAmounts[i] = aspects[i].PartAmount;
+        }
+
+        for (int v = 0; v < MinionEntity.Length; v++)
+        {
+            if (aspects[v].IsSpawnedPart == false)
+            {
+                foreach (var i in aspects[v].minionParts)
+                {
+                    var spawned = ecb.Instantiate(i.Part);
+                    ecb.AddSharedComponent(spawned, new MinionPartParent { parent = aspects[v].entity });
+                }
+            }
+        }
+
         ecb.Playback(EntityManager);
         ecb.Dispose();
 
 
-        ecb = new EntityCommandBuffer(Allocator.TempJob);
+        //ecb = new EntityCommandBuffer(Allocator.TempJob);
         spawnHandle = Dependency;
-        foreach (var v in aspects)
+        int spanwPartIndex = 0;
+
+        for (int i = 0; i < aspects.Length; i++)
         {
+            var v = aspects[i];
             var spawnedPart = Entities.WithSharedComponentFilter
                         (
                             new MinionPartParent { parent = v.entity }
-                        ).ToQuery().ToEntityArray(Allocator.TempJob);
+                        ).ToQuery().ToEntityArray(Allocator.TempJob);//====XX 다른 캐릭터꺼랑 혼합 되진 않지만 그래도
 
-            var lHandle = new MinionAspect.PartSpawnSetupJob()
+            var queryTemp = Entities.WithSharedComponentFilter
+                        (
+                            new MinionPartParent { parent = v.entity }
+                        ).ToQuery();
+            queryTemp.SetSharedComponentFilter(new MinionPartParent { parent = v.entity });
+            Debug.Log($"Query Temp / Spawned Part : {queryTemp.CalculateEntityCount()} / {spawnedPart.Length}");
+            var spawnedTemp = queryTemp.ToEntityArray(Allocator.Temp);
+            Debug.Log($"queryTemp ==> {EntityManager.GetSharedComponent<MinionPartParent>(spawnedTemp[0]).parent} ~ {EntityManager.GetSharedComponent<MinionPartParent>(spawnedTemp[^1]).parent}");
+
+
+            var lHandle = new MinionAspect.PartSpawnSetupJob_Temp()
             {
-                ecb = ecb.AsParallelWriter(),
+                //ecb = ecb.AsParallelWriter(),
                 targetParent = v.entity,
                 //targetAspect = v,
-                spawnedEntity = spawnedPart
+                spawnedEntity = spawnedPart,
+                PartLength = partAmounts[i],
+                startPartIndex = spanwPartIndex
             }.ScheduleParallel(spawnHandle);
             spawnHandle = JobHandle.CombineDependencies(spawnHandle, lHandle);
 
+            spanwPartIndex += partAmounts[i];
             spawnedPart.Dispose(lHandle);//----job 끝난후 할당 해제
         }
+
+
         spawnHandle.Complete();
-        ecb.Playback(EntityManager);
-        ecb.Dispose();
+        //ecb.Playback(EntityManager);
+        //ecb.Dispose();
 
 
         MinionEntity.Dispose();
