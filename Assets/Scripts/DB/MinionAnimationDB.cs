@@ -119,7 +119,10 @@ public class MinionAnimationDB : ScriptableObject
     {
         return PartCurves[GetDatasIndex(ClipIndex, BoneIndex)].GetTransform(time);
     }
-
+    public float GetClipLength(int ClipIndex)
+    {
+        return PartCurves[ClipDataIndex[ClipIndex]].Curve.Length * ClipDataInterval;
+    }
     public void ResetData()
     {
         PartCurves = new ClipCurve[0];

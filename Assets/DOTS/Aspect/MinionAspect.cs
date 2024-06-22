@@ -9,20 +9,28 @@ using System.Linq;
 using System;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.UniversalDelegates;
+using Unity.Transforms;
 
 public readonly partial struct MinionAspect : IAspect
 {
     public readonly Entity entity;
 
-    [NativeDisableUnsafePtrRestriction]
-    private readonly RefRO<MinionData> minionData;
-    [NativeDisableUnsafePtrRestriction, ReadOnly]//--JobSystem에서 Aspect 쓰기위해서
+    //[NativeDisableUnsafePtrRestriction]
+    private readonly RefRW<MinionData> minionData;
+    //[NativeDisableUnsafePtrRestriction, ReadOnly]//--JobSystem에서 Aspect 쓰기위해서
     public readonly DynamicBuffer<MinionPart> minionParts;
+    public readonly RefRW<MinionAnimation> minionAnimation;
+    public readonly RefRO<LocalTransform> tranform;
 
     public bool IsSpawnedPart
     {
         get => minionData.ValueRO.isSpawnedPart;
-        //set => minionData.ValueRW.isSpawnedPart = value;
+        set => minionData.ValueRW.isSpawnedPart = value;
+    }
+    public bool IsEnablePart
+    {
+        get => minionData.ValueRO.isEnablePart;
+        set => minionData.ValueRW.isEnablePart = value;
     }
     public int PartAmount
     {
@@ -35,9 +43,60 @@ public readonly partial struct MinionAspect : IAspect
     public float DisableCounter
     {
         get => minionData.ValueRO.DisableCounter;
-        //set => minionData.ValueRW.DisableCounter = value; 
+        set => minionData.ValueRW.DisableCounter = value; 
     }
 
+    public int PreviousClip
+    {
+        get => minionAnimation.ValueRO.PreviousAnimation;
+        internal set => minionAnimation.ValueRW.PreviousAnimation = value;
+    }
+    public float StopedTime
+    {
+        get => minionAnimation.ValueRO.StopedTime;
+        internal set => minionAnimation.ValueRW.StopedTime = value;
+    }
+    public int CurrectClip
+    {
+        get => minionAnimation.ValueRO.CurrectAnimation;
+        internal set => minionAnimation.ValueRW.CurrectAnimation = value;
+    }
+    public float PlayTime
+    {
+        get => minionAnimation.ValueRO.PlayTime;
+        internal set => minionAnimation.ValueRW.PlayTime = value;
+    }
+
+    public void ChangeAnimation(int newClipIndex)
+    {
+        PreviousClip = CurrectClip;
+        StopedTime = PlayTime;
+
+        CurrectClip = newClipIndex;
+        PlayTime = 0;
+    }
+    /// <summary>
+    /// false : End of animation
+    /// </summary>
+    /// <param name="deltaTime"></param>
+    /// <returns></returns>
+    public bool AnimationAddDelta(float deltaTime)
+    {
+        if (CurrectClip < 0)
+            return false;
+
+        float length = MinionAnimationDB.Instance.GetClipLength(CurrectClip);
+        if (PlayTime + deltaTime < length)
+        {
+            PlayTime += deltaTime;
+            return true;
+        }
+        else
+        {
+            PlayTime = length;
+            return false;
+        }
+    }
 
     #region Disabled
     [System.Obsolete("Exception : This method should have been replaced by source gen. - Run Same Place")]
@@ -112,61 +171,8 @@ public readonly partial struct MinionAspect : IAspect
             spawnedEntity = spawnedPart
         };
     }
-    #endregion
 
-    public static void GetSharedMutiplyFillter(EntityQuery query, NativeArray<Entity> FillterShared,
-    ref NativeList<Entity> FilltedEntities)
-    {
-        foreach (var v in FillterShared)
-        {
-            var tempQuery = query;
-            tempQuery.SetSharedComponentFilter(new MinionPartParent { parent = v});
 
-            var temp = tempQuery.ToEntityArray(Allocator.Temp);
-
-            FilltedEntities.AddRange(temp);
-
-            temp.Dispose();
-        }
-    }
-    public static void GetSharedMutiplyFillter<T>(EntityQuery query, NativeArray<T> FillterShared,
-        ref NativeList<Entity> FilltedEntities) where T : unmanaged, ISharedComponentData
-    {
-        foreach(var v in FillterShared)
-        {
-            var tempQuery = query;
-            tempQuery.SetSharedComponentFilter(v);
-
-            var temp = tempQuery.ToEntityArray(Allocator.Temp);
-
-            FilltedEntities.AddRange(temp);
-        }
-    }
-
-    #region JobSystem
-
-    [BurstCompile]
-    public partial struct PartSpawnJob : IJobEntity
-    {
-        public EntityCommandBuffer.ParallelWriter ecb;
-
-        //[NativeDisableUnsafePtrRestriction] public MinionAspect minionAspect;
-        [ReadOnly] public NativeArray<MinionPart> minionBuffer;
-
-        public void Execute(Entity entity, [EntityIndexInQuery] int index, in MinionData minionData)
-        {
-            if (minionData.isSpawnedPart == false)
-            {
-                for (int i = 0; i < minionData.Parts; i++)
-                {
-                    var spawned = ecb.Instantiate(index, minionBuffer[i].Part);
-                    //ecb.SetComponent(index, spawned, trans);//Work
-                    //ecb.AddComponent(index, spawned, new Parent { Value = entity});
-                    ecb.AddSharedComponent(index, spawned, new MinionPartParent { parent = entity });
-                }
-            }
-        }
-    }
     [BurstCompile, System.Obsolete("MinionAspect 를 중첩해서 사용 불가")]
     public partial struct PartSpawnJob_Aspect : IJobParallelFor
     {
@@ -223,6 +229,101 @@ public readonly partial struct MinionAspect : IAspect
             }
         }
     }
+    #endregion Disabled
+
+    public static void GetSharedMutiplyFillter(EntityQuery query, NativeArray<Entity> FillterShared,
+    ref NativeList<Entity> FilltedEntities)
+    {
+        foreach (var v in FillterShared)
+        {
+            var tempQuery = query;
+            tempQuery.SetSharedComponentFilter(new MinionPartParent { parent = v});
+
+            var temp = tempQuery.ToEntityArray(Allocator.Temp);
+
+            FilltedEntities.AddRange(temp);
+
+            temp.Dispose();
+        }
+    }
+    public static void GetSharedMutiplyFillter<T>(EntityQuery query, NativeArray<T> FillterShared,
+        ref NativeList<Entity> FilltedEntities) where T : unmanaged, ISharedComponentData
+    {
+        foreach(var v in FillterShared)
+        {
+            var tempQuery = query;
+            tempQuery.SetSharedComponentFilter(v);
+
+            var temp = tempQuery.ToEntityArray(Allocator.Temp);
+
+            FilltedEntities.AddRange(temp);
+        }
+    }
+
+    /// <summary>
+    /// allPartsParent is {Aspect.IsEnablePart : true ==> Spawned Minion Part / false ==> Spawn source entity}
+    /// </summary>
+    [System.Obsolete("Perfomance Issue - Array.Fill")]
+    public static void GetMinionsPart(NativeArray<MinionAspect> aspects , bool isNotSpawned,
+        ref NativeList<MinionPart> allParts, ref NativeList<Entity> allPartsParent)
+    {
+        for (int v = 0; v < aspects.Length; v++)
+        {
+            if (aspects[v].IsEnablePart == isNotSpawned)
+                continue;
+
+            var buffer = aspects[v].minionParts.ToNativeArray(Allocator.Temp);
+            var parents = new Entity[buffer.Length];
+            Array.Fill(parents, aspects[v].entity);
+            var parentNative = new NativeArray<Entity>(parents, Allocator.Temp);
+
+            allParts.AddRange(buffer);
+            allPartsParent.AddRange(parentNative);
+
+            buffer.Dispose();
+            parentNative.Dispose();
+        }
+    }
+
+    #region JobSystem
+
+    [BurstCompile]
+    public partial struct PartSpawnJob : IJobEntity
+    {
+        public EntityCommandBuffer.ParallelWriter ecb;
+
+        //[NativeDisableUnsafePtrRestriction] public MinionAspect minionAspect;
+        [ReadOnly] public NativeArray<MinionPart> minionBuffer;
+
+        public void Execute(Entity entity, [EntityIndexInQuery] int index, in MinionData minionData)
+        {
+            if (minionData.isSpawnedPart == false)
+            {
+                for (int i = 0; i < minionData.Parts; i++)
+                {
+                    var spawned = ecb.Instantiate(index, minionBuffer[i].Part);
+                    //ecb.SetComponent(index, spawned, trans);//Work
+                    //ecb.AddComponent(index, spawned, new Parent { Value = entity});
+                    ecb.AddSharedComponent(index, spawned, new MinionPartParent { parent = entity });
+                }
+            }
+        }
+    }
+    [BurstCompile]
+    public partial struct PartSpawnJob_Parall : IJobParallelFor
+    {
+        public EntityCommandBuffer.ParallelWriter ecb;
+
+        [ReadOnly] public NativeList<MinionPart> Parts;
+        [ReadOnly] public NativeList<Entity> PartParents;
+        public void Execute(int index)
+        {
+            var spawned = ecb.Instantiate(index, Parts[index].Part);
+            ecb.AddSharedComponent(index ,spawned, new MinionPartParent { parent = PartParents[index] });
+            ecb.AddComponent(index, spawned, new MinionPartIndex { Index = Parts[index].BodyIndex });
+        }
+    }
+
     [BurstCompile]
     public partial struct PartSpawnSetupJob_Ref : IJobEntity
     {

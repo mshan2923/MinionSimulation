@@ -16,6 +16,7 @@ using Unity.Mathematics;
 using static UnityEngine.Rendering.VolumeComponent;
 using Unity.VisualScripting;
 
+[UpdateAfter(typeof(EcsSpawnerSystem))]
 partial class MinionSetUpSystem : SystemBase
 {
     /*
@@ -43,6 +44,8 @@ partial class MinionSetUpSystem : SystemBase
         
     }*/
 
+
+    bool isToggle = false;
     protected override void OnStartRunning()
     {
         base.OnStartRunning();
@@ -114,47 +117,39 @@ partial class MinionSetUpSystem : SystemBase
 
         var MinionQuery = GetEntityQuery(typeof(MinionData));
         var MinionEntity = MinionQuery.ToEntityArray(Allocator.TempJob);
+
         var aspects = new NativeArray<MinionAspect>(MinionEntity.Length, Allocator.TempJob);
-
-
-        var ecb = new EntityCommandBuffer(Allocator.TempJob);
-
-        var spawnHandle = Dependency;
-        /*
-        foreach (var v in aspects)
-        {
-            
-            var lHandle = new MinionAspect.PartSpawnJob()
-            {
-                ecb = ecb.AsParallelWriter(),
-                minionBuffer = v.minionParts.AsNativeArray()
-            }.ScheduleParallel(Dependency);//================ IJobEntity가 아니라 IJobParrall 으로 전부 묶어서 하면?
-            
-
-            spawnHandle = JobHandle.CombineDependencies(spawnHandle, lHandle);
-        }
-        spawnHandle.Complete();*/
-
         for (int v = 0; v < MinionEntity.Length; v++)
         {
             aspects[v] = SystemAPI.GetAspect<MinionAspect>(MinionEntity[v]);
-
-            if (aspects[v].IsSpawnedPart == false)
-            {
-                foreach (var i in aspects[v].minionParts)
-                {
-                    var spawned = ecb.Instantiate(i.Part);
-                    ecb.AddSharedComponent(spawned, new MinionPartParent { parent = aspects[v].entity });
-                }
-            }
         }
 
-        ecb.Playback(EntityManager);
-        ecb.Dispose();
+        var ecb = new EntityCommandBuffer(Allocator.TempJob);
+        var spawnHandle = Dependency;
+
+        {
+            var allParts = new NativeList<MinionPart>(Allocator.TempJob);
+            var allPartsParent = new NativeList<Entity>(Allocator.TempJob);
+
+            MinionAspect.GetMinionsPart(aspects, true, ref allParts, ref allPartsParent);
+
+            spawnHandle = new MinionAspect.PartSpawnJob_Parall()
+            {
+                ecb = ecb.AsParallelWriter(),
+                Parts = allParts,
+                PartParents = allPartsParent,
+            }.Schedule(allParts.Length, 32, Dependency);
+            // ==== Buffer들을 전부 합치고 , 같은 크기로 MinionPartParent 값 준비후 , 한번에 스폰 
+
+            spawnHandle.Complete();
+            ecb.Playback(EntityManager);
+
+            ecb.Dispose();
+            allParts.Dispose();
+            allPartsParent.Dispose();
+        }//Spawn
 
 
-        //ecb = new EntityCommandBuffer(Allocator.TempJob);
-        spawnHandle = Dependency;
 
         var allPartQuery = Entities.WithSharedComponentFilter(new MinionPartParent { }).ToQuery();
         //Debug.Log($"All Spawned Query : {allPartQuery.CalculateEntityCount()}");
@@ -167,13 +162,10 @@ partial class MinionSetUpSystem : SystemBase
             spawnedQuery.SetSharedComponentFilter(new MinionPartParent { parent = v.entity });
 
             var spawnedPart = spawnedQuery.ToEntityArray(Allocator.TempJob);
-            //Debug.Log($"Spawned Part : {spawnedPart.Length}");
 
             var lHandle = new MinionAspect.PartSpawnSetupJob_Ref()
             {
-                //ecb = ecb.AsParallelWriter(),
                 targetParent = v.entity,
-                //targetAspect = v,
                 spawnedEntity = spawnedPart
             }.ScheduleParallel(spawnHandle);
             spawnHandle = JobHandle.CombineDependencies(spawnHandle, lHandle);
@@ -209,36 +201,51 @@ partial class MinionSetUpSystem : SystemBase
     }
     protected override void OnUpdate()
     {
-
-    }
-    /*
-    //[BurstCompile]
-    public partial struct PartSpawnJob : IJobParallelFor
-    {
-        public EntityCommandBuffer.ParallelWriter ecb;
-        [ReadOnly] public int ClipIndex;
-        [ReadOnly] public NativeArray<MinionData> MinionDatas;
-
-        [ReadOnly] public NativeArray<MinionPart> minionBuffer;
-
-        public void Execute(int index)
+        if (Input.GetKeyDown(KeyCode.Space))
         {
-            //ref var parts = ref MinionDatas[ClipIndex].MinionParts.Value.Parts;
+            var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            var allPartQuery = Entities.WithSharedComponentFilter(new MinionPartParent { }).ToQuery();
+            var minions = Entities.WithAll<MinionData>().ToQuery().ToEntityArray(Allocator.TempJob);
 
-            if (Entity.Equals(Entity.Null, minionBuffer[index].Part))
-                return;
+            var partsList = new NativeList<Entity>(Allocator.TempJob);
+            {
+                foreach(var e in minions)
+                {
+                    var aspect = SystemAPI.GetAspect<MinionAspect>(e);
+                    var buffer = aspect.minionParts.ToNativeArray(Allocator.Temp);
 
-            var spawned = ecb.Instantiate(index, minionBuffer[index].Part);//MinionDatas[ClipIndex].TestDefaultObj
+                    var bufferArray = buffer.Select(t => t.Part).ToArray();
 
-            var trans = MinionAnimationDB.Instance.GetPartTransform(ClipIndex, index, 0);
-            trans.Scale = 0.2f;// ========= 임시
+                    var bufferNative = new NativeArray<Entity>(bufferArray, Allocator.Temp);
+                    partsList.AddRange(bufferNative);
+                    bufferNative.Dispose();
+                    buffer.Dispose();
+                }
 
-            // ++++++++  부모 엔티티 저장
+            }//Get All MinionPart
 
-            ecb.SetComponent(index, spawned, trans);
-        }
-    }*/
+            var toggleHandle = new MinionAspect.ToggleJob()
+            {
+                ecb = ecb.AsParallelWriter(),
+                spawnedEntity = partsList,
+                value = !isToggle
+            }.Schedule(partsList.Length, 32, Dependency);
+            toggleHandle.Complete();
+            isToggle = !isToggle;
 
+            ecb.Playback(EntityManager);
+            ecb.Dispose();
+
+            foreach (var e in minions)
+            {
+                SystemAPI.GetAspect<MinionAspect>(e).IsEnablePart = isToggle;
+            }
+            partsList.Dispose(toggleHandle);
+            minions.Dispose();
+        }//Toggle All Minions - Mouse Right Button
+    }
+
+    #region Disable
     //[BurstCompile]
     public partial struct PartSpawnJob : IJobEntity
     {
@@ -315,4 +322,5 @@ partial class MinionSetUpSystem : SystemBase
             }
         }
     }
+    #endregion
 }

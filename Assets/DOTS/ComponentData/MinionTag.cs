@@ -13,6 +13,7 @@ public struct MinionData : IComponentData
     public FixedString32Bytes AvaterName;
 
     public bool isSpawnedPart;
+    public bool isEnablePart;
 
     public int Parts;
 
@@ -24,4 +25,16 @@ public struct MinionPart : IBufferElementData
 {
     public Entity Part;
     public int BodyIndex;
+}
+public struct MinionPartIndex : IComponentData
+{
+    public int Index;
+}
+
+public struct MinionAnimation : IComponentData
+{
+    public int PreviousAnimation;
+    public float StopedTime;
+    public int CurrectAnimation;
+    public float PlayTime;
 }

@@ -42,9 +42,22 @@ class CharacterAuthoringBaker : Baker<CharacterAuthoring>
                     {
                         AvaterName = targetAvatar.name,
                         isSpawnedPart = false,
+                        isEnablePart = false,
                         TestDefaultObj = GetEntity(MinionAnimationDB.Instance.DefaultObject, TransformUsageFlags.Renderable),
                         Parts = targetAvatar.humanDescription.skeleton.Length,
                         DisableCounter = -1
+                    }
+                );
+
+            AddComponent
+                (
+                    GetEntity(authoring, TransformUsageFlags.Renderable),
+                    new MinionAnimation
+                    {
+                        PreviousAnimation = -1,
+                        StopedTime = 0,
+                        CurrectAnimation = -1,
+                        PlayTime = 0
                     }
                 );
         }
