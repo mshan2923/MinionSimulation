@@ -28,7 +28,13 @@ public partial class MinionSystem : SystemBase
     }
     protected override void OnUpdate()
     {
-        // 모든 Minion 마다 Part들을 위치 업데이트...
+
+        var MinionEntities = Minions.ToEntityArray(Allocator.TempJob);
+        var MinionDatas = Minions.ToComponentDataArray<MinionData>(Allocator.TempJob);
+
+        if (false)
+        {
+            // 모든 Minion 마다 Part들을 위치 업데이트...
             //한번에 적용하기 위해 , 데이터 준비한후 , 적용
             // 먼저 Minion 목록 에서 
                 // 모든 부위
@@ -36,8 +42,6 @@ public partial class MinionSystem : SystemBase
                 // 캐릭터 엔티티
             // HashMap<캐릭터 엔티티, MinionAnimation>
 
-        {
-            var MinionEntities = Minions.ToEntityArray(Allocator.TempJob);
             var Aspects = new NativeArray<MinionAspect>(MinionEntities.Length, Allocator.TempJob);
             var AllParts = new NativeList<MinionPart>(Allocator.TempJob);
             var AllPartsParent = new NativeList<Entity>(Allocator.TempJob);
@@ -98,7 +102,54 @@ public partial class MinionSystem : SystemBase
             AllPartsParent.Dispose();
             AnimationData.Dispose();
             MinionTransform.Dispose();
-        }
+        }//First Try
+
+        {
+            //var ecb = SystemAPI.GetSingleton<BeginFixedStepSimulationEntityCommandBufferSystem.Singleton>()
+            //    .CreateCommandBuffer(EntityManager.WorldUnmanaged).AsParallelWriter();
+
+            var origins = new NativeArray<LocalTransform>(MinionEntities.Length, Allocator.TempJob);
+
+            var updateHandle = Dependency;
+            //for (int i = 0; i < MinionEntities.Length; i++)
+            {
+                //Aspects[i] = SystemAPI.GetAspect<MinionAspect>(MinionEntities[i]);//====== 이것...때문에?
+                //origins[i] = Aspects[i].tranform.ValueRO;
+            }
+
+            for (int i = 0; i < MinionEntities.Length; i++)
+            {
+                //var aspect = Aspects[i];
+                var parent = MinionEntities[i];
+                var data = MinionDatas[i];
+
+                if (data.isEnablePart)
+                {
+                    var origin = origins[i];
+
+                    Entities.WithSharedComponentFilter(new MinionPartParent { parent = parent })
+                        .ForEach((Entity entity, int entityInQueryIndex, ref LocalTransform transform) =>
+                        {
+                            /*
+                            ecb.SetComponent(entityInQueryIndex, entity, new LocalTransform
+                            {
+                                Position = origin.Position + new float3(0, entityInQueryIndex, 0),
+                                Rotation = quaternion.identity,
+                                Scale = 1
+                            });*/
+                            transform.Position = origin.Position + new float3(0, entityInQueryIndex, 0);
+                        }).ScheduleParallel();// 접근 불가능 해도 500개 기준 MinionSystem이 30ms 정도 차지
+                }
+            }
+
+            //updateHandle.Complete();
+            origins.Dispose();
+        }//=== 전보단 직관적이고 성능도 좋은데 , 절반 이상이 Job 완료 대기 시간
+            // 처음엔 BeginIntiECB > BeginFixECB > 순서대로 의존성 > 의존성 제거 > 참조 , 조금씩 성능 좋아졌지만 여전히 형편없음
+
+        MinionEntities.Dispose();
+        //Aspects.Dispose();
+        MinionDatas.Dispose();
     }
 
     public partial struct UpdateMinionAnimation : IJobParallelFor
@@ -119,7 +170,7 @@ public partial class MinionSystem : SystemBase
             if (Equals(part, Entity.Null))
                 return;
 
-            //if (animations.TryGetValue(parent, out var anim))
+            if (animations.TryGetValue(parent, out var anim))
             {
                 transform.TryGetValue(parent, out var worldTrans);
                 var localTrans = LocalTransform.Identity;
