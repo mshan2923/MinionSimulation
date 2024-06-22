@@ -143,7 +143,7 @@ public class MinionAnimationDB : ScriptableObject
         PartCurves = temp.ToArray();
     }
 
-    public GameObject GetSpawnObj(int ClipIndex, int BoneIndex)
+    public GameObject GetSpawnObj(int ClipIndex, int BoneIndex, bool AllowNull)
     {
         GameObject obj = DefaultObject;
 
@@ -151,10 +151,12 @@ public class MinionAnimationDB : ScriptableObject
         {
             obj = SpawnObjDBs[ClipIndex].Objects.GetVaule(BoneIndex);
 
-            if (obj == null)
+            if (obj != null)
+                return obj;
+            if (obj == null && !AllowNull)
                 return DefaultObject;
             else
-                return obj;
+                return null;
         }
         catch
         {

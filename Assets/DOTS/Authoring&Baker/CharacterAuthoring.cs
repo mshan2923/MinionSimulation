@@ -27,11 +27,15 @@ class CharacterAuthoringBaker : Baker<CharacterAuthoring>
 
             for (int i = 0; i < targetAvatar.humanDescription.skeleton.Length; i++)
             {
-                var spawnEntity = GetEntity(MinionAnimationDB.Instance.DefaultObject, TransformUsageFlags.Renderable);
+                var obj = MinionAnimationDB.Instance.GetSpawnObj(authoring.DefaultAnimation, i, true);
+                if (obj != null)
+                {
+                    var spawnEntity = GetEntity(MinionAnimationDB.Instance.DefaultObject, TransformUsageFlags.Renderable);
                     //MinionAnimationDB.Instance.GetSpawnObj(authoring.DefaultAnimation, i);
 
-
-                MinionParts.Add(new MinionPart { Part = spawnEntity , BodyIndex = i});
+                    MinionParts.Add(new MinionPart { Part = spawnEntity, BodyIndex = i });
+                }
+                //var spawnEntity = GetEntity(MinionAnimationDB.Instance.DefaultObject, TransformUsageFlags.Renderable);
             }
 
 

@@ -20,13 +20,15 @@ MonoBehaviour:
     - Key: Ch36
       Vaule: {fileID: 0}
     - Key: mixamorig1:Hips
-      Vaule: {fileID: 0}
+      Vaule: {fileID: 7837412358234784443, guid: 08d1648e2256042499d3bfa96c7ddb38,
+        type: 3}
     - Key: mixamorig1:RightUpLeg
       Vaule: {fileID: 0}
     - Key: mixamorig1:RightLeg
       Vaule: {fileID: 0}
     - Key: mixamorig1:RightFoot
-      Vaule: {fileID: 0}
+      Vaule: {fileID: 7837412358234784443, guid: 08d1648e2256042499d3bfa96c7ddb38,
+        type: 3}
     - Key: mixamorig1:RightToeBase
       Vaule: {fileID: 0}
     - Key: mixamorig1:RightToe_End
@@ -36,7 +38,8 @@ MonoBehaviour:
     - Key: mixamorig1:LeftLeg
       Vaule: {fileID: 0}
     - Key: mixamorig1:LeftFoot
-      Vaule: {fileID: 0}
+      Vaule: {fileID: 7837412358234784443, guid: 08d1648e2256042499d3bfa96c7ddb38,
+        type: 3}
     - Key: mixamorig1:LeftToeBase
       Vaule: {fileID: 0}
     - Key: mixamorig1:LeftToe_End
@@ -50,7 +53,8 @@ MonoBehaviour:
     - Key: mixamorig1:Neck
       Vaule: {fileID: 0}
     - Key: mixamorig1:Head
-      Vaule: {fileID: 0}
+      Vaule: {fileID: 7837412358234784443, guid: 08d1648e2256042499d3bfa96c7ddb38,
+        type: 3}
     - Key: mixamorig1:HeadTop_End
       Vaule: {fileID: 0}
     - Key: mixamorig1:LeftShoulder
@@ -60,7 +64,8 @@ MonoBehaviour:
     - Key: mixamorig1:LeftForeArm
       Vaule: {fileID: 0}
     - Key: mixamorig1:LeftHand
-      Vaule: {fileID: 0}
+      Vaule: {fileID: 7837412358234784443, guid: 08d1648e2256042499d3bfa96c7ddb38,
+        type: 3}
     - Key: mixamorig1:LeftHandThumb1
       Vaule: {fileID: 0}
     - Key: mixamorig1:LeftHandThumb2
@@ -108,7 +113,8 @@ MonoBehaviour:
     - Key: mixamorig1:RightForeArm
       Vaule: {fileID: 0}
     - Key: mixamorig1:RightHand
-      Vaule: {fileID: 0}
+      Vaule: {fileID: 7837412358234784443, guid: 08d1648e2256042499d3bfa96c7ddb38,
+        type: 3}
     - Key: mixamorig1:RightHandMiddle1
       Vaule: {fileID: 0}
     - Key: mixamorig1:RightHandMiddle2
