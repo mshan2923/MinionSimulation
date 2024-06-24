@@ -47,6 +47,8 @@ public partial class MinionSystem : SystemBase
             var AnimationDataParall = new NativeParallelHashMap<Entity, MinionAnimation>(MinionEntities.Length, Allocator.TempJob);
             var MinionTransformParall = new NativeParallelHashMap<Entity, LocalTransform>(MinionEntities.Length, Allocator.TempJob);
 
+            var clipData = GetEntityQuery(typeof(MinionClipData)).ToComponentDataArray<MinionClipData>(Allocator.TempJob);
+
             //var ecb = SystemAPI.GetSingleton<BeginSimulationEntityCommandBufferSystem.Singleton>()
             //    .CreateCommandBuffer(EntityManager.WorldUnmanaged);
 
@@ -63,7 +65,8 @@ public partial class MinionSystem : SystemBase
             {
                 //ecb = ecb.AsParallelWriter(),
                 animations = AnimationDataParall.AsReadOnly(),
-                originTransform = MinionTransformParall.AsReadOnly()
+                originTransform = MinionTransformParall.AsReadOnly(),
+                ClipDatas = clipData
             }.ScheduleParallel(setupHandle).Complete();
             //=============== 크기조절 에 따른 위치 변경이 없음 , 크기 직접 지정 하고 있음 --> 초기값을 덮어 쓸 수 밖에 없음
 
@@ -72,6 +75,7 @@ public partial class MinionSystem : SystemBase
             //Aspects.Dispose();
             AnimationDataParall.Dispose();
             MinionTransformParall.Dispose();
+            clipData.Dispose();
         }
 
         MinionEntities.Dispose();
@@ -99,6 +103,7 @@ public partial class MinionSystem : SystemBase
     {
         [ReadOnly] public NativeParallelHashMap<Entity, MinionAnimation>.ReadOnly animations;
         [ReadOnly] public NativeParallelHashMap<Entity, LocalTransform>.ReadOnly originTransform;
+        [ReadOnly] public NativeArray<MinionClipData> ClipDatas;
 
         public void Execute(Entity e, [EntityIndexInQuery] int index, in MinionPartIndex partIndex, in MinionPartParent parent,
             ref LocalTransform transform)
@@ -106,9 +111,14 @@ public partial class MinionSystem : SystemBase
             if (animations.TryGetValue(parent.parent, out var anim))
             {
                 originTransform.TryGetValue(parent.parent, out var worldTrans);
-                var localTrans = worldTrans;
-                localTrans.Position = MinionAnimationDB.Instance.GetPartTransform(anim.CurrectAnimation, partIndex.Index, anim.PlayTime).Position;
-                    //new float3(0, partIndex.Index, 0);
+                //var localTrans = worldTrans;
+                //localTrans.Position = MinionAnimationDB.Instance.GetPartTransform(anim.CurrectAnimation, partIndex.Index, anim.PlayTime).Position;
+                //new float3(0, partIndex.Index, 0);
+
+                var localTrans = ClipDatas[anim.CurrectAnimation].assetReference.Value.parts[partIndex.Index]
+                    .frames[Mathf.FloorToInt(anim.PlayTime / ClipDatas[anim.CurrectAnimation].ClipDataInterval)];
+
+
                 localTrans.Scale = 0.2f; //========== 크기 직접 지정 하고 있음
 
                 transform.Position = worldTrans.Position + localTrans.Position;

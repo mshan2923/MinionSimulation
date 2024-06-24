@@ -26,7 +26,6 @@ class EcsAnimDBConverterBaker : Baker<EcsAnimDBConverter>
             var clipDataBuilder = new BlobBuilder(Allocator.Temp);
             ref MinionClipPartData clipPart = ref clipDataBuilder.ConstructRoot<MinionClipPartData>();
             var clipPartBuilder = clipDataBuilder.Allocate(ref clipPart.parts, db.BoneAmount(c));
-            // <===== (스폰)소스 오브젝트가 유효 한것 갯수 , 임시로 크기가 0인 배열로 
 
             for (int b = 0; b < db.BoneAmount(c); b++)
             {
@@ -53,6 +52,7 @@ class EcsAnimDBConverterBaker : Baker<EcsAnimDBConverter>
             AddComponent(clipEntity, new MinionClipData
             {
                 clipIndex = c,
+                ClipDataInterval = MinionAnimationDB.ClipDataInterval,
                 assetReference = clipRef
                 //===== 여기에 BlobAsset 해쉬값 저장해 , 메모리 할당 해제 해줘야 하나?
             });
