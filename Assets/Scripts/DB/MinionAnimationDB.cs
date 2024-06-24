@@ -78,10 +78,16 @@ public class MinionAnimationDB : ScriptableObject
             instance = this;
     }
 
+    public int ClipAmount
+    {
+        get => ClipDataIndex.Length;
+    }
+
     public int BoneAmount(int ClipIndex)
     {
         if (ClipIndex < 0 || ClipIndex >= ClipDataIndex.Length)
             return -1;
+        /*
         if (PartCurves == null)
             return -1;
 
@@ -95,6 +101,9 @@ public class MinionAnimationDB : ScriptableObject
         {
             return ClipDataIndex[ClipIndex + 1] - startIndex;
         }
+        */
+
+        return animationClips[ClipIndex].GetSkeletons.Length;
     }
 
     public int GetDatasIndex(int ClipIndex, int BoneIndex)
@@ -117,9 +126,18 @@ public class MinionAnimationDB : ScriptableObject
     {
         return PartCurves[GetDatasIndex(ClipIndex, BoneIndex)].GetTransform(time);
     }
+    public LocalTransform GetPartTransform(int ClipIndex, int BoneIndex, int index)
+    {
+        return PartCurves[GetDatasIndex(ClipIndex, BoneIndex)].Curve[index].transform;
+    }
+
     public float GetClipLength(int ClipIndex)
     {
         return PartCurves[ClipDataIndex[ClipIndex]].Curve.Length * ClipDataInterval;
+    }
+    public int GetClipSize(int ClipIndex)
+    {
+        return PartCurves[ClipDataIndex[ClipIndex]].Curve.Length;
     }
     public void ResetData()
     {
