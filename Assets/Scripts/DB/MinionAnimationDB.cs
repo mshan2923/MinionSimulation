@@ -50,7 +50,6 @@ public class MinionAnimationDB : ScriptableObject
     {
         public TransformData[] Curve;
 
-        [System.Obsolete("Need add Lerp")]
         public LocalTransform GetTransform(float time)
         {
             int timeIndex = Mathf.FloorToInt(time / ClipDataInterval);
@@ -114,7 +113,6 @@ public class MinionAnimationDB : ScriptableObject
         return BoneIndex + startIndex;
     }
 
-    [System.Obsolete("Need add Lerp")]
     public LocalTransform GetPartTransform(int ClipIndex, int BoneIndex, float time)
     {
         return PartCurves[GetDatasIndex(ClipIndex, BoneIndex)].GetTransform(time);

@@ -33,7 +33,7 @@ class CharacterAuthoringBaker : Baker<CharacterAuthoring>
                     var spawnEntity = GetEntity(MinionAnimationDB.Instance.DefaultObject, TransformUsageFlags.Renderable);
                     //MinionAnimationDB.Instance.GetSpawnObj(authoring.DefaultAnimation, i);
 
-                    MinionParts.Add(new MinionPart { Part = spawnEntity, BodyIndex = i });
+                    MinionParts.Add(new MinionPart { Part = spawnEntity, SpawnBodyIndex = i });
                 }
                 //var spawnEntity = GetEntity(MinionAnimationDB.Instance.DefaultObject, TransformUsageFlags.Renderable);
             }

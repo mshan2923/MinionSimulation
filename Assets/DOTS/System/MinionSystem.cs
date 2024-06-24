@@ -1,11 +1,14 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Transforms;
+using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 
 [UpdateAfter(typeof(MinionSetUpSystem))]
@@ -32,7 +35,6 @@ public partial class MinionSystem : SystemBase
         var MinionEntities = Minions.ToEntityArray(Allocator.TempJob);
         var MinionDatas = Minions.ToComponentDataArray<MinionData>(Allocator.TempJob);
 
-        if (false)
         {
             // 모든 Minion 마다 Part들을 위치 업데이트...
             //한번에 적용하기 위해 , 데이터 준비한후 , 적용
@@ -42,152 +44,105 @@ public partial class MinionSystem : SystemBase
                 // 캐릭터 엔티티
             // HashMap<캐릭터 엔티티, MinionAnimation>
 
-            var Aspects = new NativeArray<MinionAspect>(MinionEntities.Length, Allocator.TempJob);
-            var AllParts = new NativeList<MinionPart>(Allocator.TempJob);
-            var AllPartsParent = new NativeList<Entity>(Allocator.TempJob);
+            var AnimationDataParall = new NativeParallelHashMap<Entity, MinionAnimation>(MinionEntities.Length, Allocator.TempJob);
+            var MinionTransformParall = new NativeParallelHashMap<Entity, LocalTransform>(MinionEntities.Length, Allocator.TempJob);
 
-            var AnimationData = new NativeHashMap<Entity, MinionAnimation>(MinionEntities.Length, Allocator.TempJob);
-            var MinionTransform = new NativeHashMap<Entity, LocalTransform>(MinionEntities.Length, Allocator.TempJob);
+            //var ecb = SystemAPI.GetSingleton<BeginSimulationEntityCommandBufferSystem.Singleton>()
+            //    .CreateCommandBuffer(EntityManager.WorldUnmanaged);
 
+            AnimationDataParall.Capacity = MinionEntities.Length;
+            MinionTransformParall.Capacity = MinionEntities.Length;
 
-            for (int i = 0; i < Aspects.Length; i++)
+            var setupHandle = new SetUpHashMap()
             {
-                Aspects[i] = SystemAPI.GetAspect<MinionAspect>(MinionEntities[i]);
+                AnimationDataParall = AnimationDataParall.AsParallelWriter(),
+                MinionTransformParall = MinionTransformParall.AsParallelWriter()
+            }.ScheduleParallel(Dependency);
 
-                if (Aspects[i].IsEnablePart && Aspects[i].DisableCounter <= 0)
-                {
-                    AnimationData.Add(Aspects[i].entity, Aspects[i].minionAnimation.ValueRO);
-                    MinionTransform.Add(Aspects[i].entity, Aspects[i].tranform.ValueRO);
-
-                    if (Aspects[i].AnimationAddDelta(SystemAPI.Time.DeltaTime) == false)
-                    {
-                        Aspects[i].ChangeAnimation(0);
-                    }//=============== 임시
-                }
-                //===============Aspect으로 참조으로 다음 에니메이션 + PlayTime 수정
-            }//======= 이것도 Job으로 해야됨
-
-            MinionAspect.GetMinionsPart(Aspects, false, ref AllParts, ref AllPartsParent);//====== 이게 문제인듯
-                        //EntityManager.GetSharedComponentManaged()
-
-            Debug.Log($"e : {MinionEntities.Length} , part : {AllParts.Length} , parent : {AllPartsParent.Length}");
-
-            if (AllParts.Length > 0)
+            new UpdateMinionAnimation_Ref()
             {
-                
-                var ecb = new EntityCommandBuffer(Allocator.TempJob);
+                //ecb = ecb.AsParallelWriter(),
+                animations = AnimationDataParall.AsReadOnly(),
+                originTransform = MinionTransformParall.AsReadOnly()
+            }.ScheduleParallel(setupHandle).Complete();
+            //=============== 크기조절 에 따른 위치 변경이 없음 , 크기 직접 지정 하고 있음 --> 초기값을 덮어 쓸 수 밖에 없음
 
-                var AllPartArray = AllParts.ToArray(Allocator.TempJob);
-                var AllPartsParentArray = AllPartsParent.ToArray(Allocator.TempJob);
+            // 싱글톤 방식으로 정보 저장은 어쩌다 접근하는거에 맞고 , 에니메이션 별 엔티티로 관리하면 되나?
 
-                new UpdateMinionAnimation()
-                {
-                    ecb = ecb.AsParallelWriter(),
-                    parts = AllPartArray,
-                    partsParent = AllPartsParentArray,
-                    animations = AnimationData.AsReadOnly(),
-                    transform = MinionTransform.AsReadOnly()
-                }.Schedule(AllParts.Length, 32, Dependency).Complete();
-                ecb.Playback(EntityManager);
-                ecb.Dispose();
-
-                AllPartArray.Dispose();
-                AllPartsParentArray.Dispose();
-                
-            }//=============== 크기조절 에 따른 위치 변경이 없음 , Job 말고도 주로 느려지게 하는이유가 따로 있음
-
-            MinionEntities.Dispose();
-            Aspects.Dispose();
-            AllParts.Dispose();
-            AllPartsParent.Dispose();
-            AnimationData.Dispose();
-            MinionTransform.Dispose();
-        }//First Try
-
-        {
-            //var ecb = SystemAPI.GetSingleton<BeginFixedStepSimulationEntityCommandBufferSystem.Singleton>()
-            //    .CreateCommandBuffer(EntityManager.WorldUnmanaged).AsParallelWriter();
-
-            var origins = new NativeArray<LocalTransform>(MinionEntities.Length, Allocator.TempJob);
-
-            var updateHandle = Dependency;
-            //for (int i = 0; i < MinionEntities.Length; i++)
-            {
-                //Aspects[i] = SystemAPI.GetAspect<MinionAspect>(MinionEntities[i]);//====== 이것...때문에?
-                //origins[i] = Aspects[i].tranform.ValueRO;
-            }
-
-            for (int i = 0; i < MinionEntities.Length; i++)
-            {
-                //var aspect = Aspects[i];
-                var parent = MinionEntities[i];
-                var data = MinionDatas[i];
-
-                if (data.isEnablePart)
-                {
-                    var origin = origins[i];
-
-                    Entities.WithSharedComponentFilter(new MinionPartParent { parent = parent })
-                        .ForEach((Entity entity, int entityInQueryIndex, ref LocalTransform transform) =>
-                        {
-                            /*
-                            ecb.SetComponent(entityInQueryIndex, entity, new LocalTransform
-                            {
-                                Position = origin.Position + new float3(0, entityInQueryIndex, 0),
-                                Rotation = quaternion.identity,
-                                Scale = 1
-                            });*/
-                            transform.Position = origin.Position + new float3(0, entityInQueryIndex, 0);
-                        }).ScheduleParallel();// 접근 불가능 해도 500개 기준 MinionSystem이 30ms 정도 차지
-                }
-            }
-
-            //updateHandle.Complete();
-            origins.Dispose();
-        }//=== 전보단 직관적이고 성능도 좋은데 , 절반 이상이 Job 완료 대기 시간
-            // 처음엔 BeginIntiECB > BeginFixECB > 순서대로 의존성 > 의존성 제거 > 참조 , 조금씩 성능 좋아졌지만 여전히 형편없음
+            //Aspects.Dispose();
+            AnimationDataParall.Dispose();
+            MinionTransformParall.Dispose();
+        }
 
         MinionEntities.Dispose();
         //Aspects.Dispose();
         MinionDatas.Dispose();
     }
 
-    public partial struct UpdateMinionAnimation : IJobParallelFor
+    [BurstCompile]
+    public partial struct SetUpHashMap : IJobEntity
+    {
+        public NativeParallelHashMap<Entity, MinionAnimation>.ParallelWriter AnimationDataParall;
+        public NativeParallelHashMap<Entity, LocalTransform>.ParallelWriter MinionTransformParall;
+        public void Execute(Entity entity, in MinionAnimation animation, in MinionData minionData, in LocalTransform transform)
+        {
+            if (minionData.isEnablePart && minionData.DisableCounter <= 0)
+            {
+                AnimationDataParall.TryAdd(entity, animation);
+                MinionTransformParall.TryAdd(entity, transform);
+            }
+        }
+    }
+
+    //[BurstCompile]
+    public partial struct UpdateMinionAnimation_Ref : IJobEntity
+    {
+        [ReadOnly] public NativeParallelHashMap<Entity, MinionAnimation>.ReadOnly animations;
+        [ReadOnly] public NativeParallelHashMap<Entity, LocalTransform>.ReadOnly originTransform;
+
+        public void Execute(Entity e, [EntityIndexInQuery] int index, in MinionPartIndex partIndex, in MinionPartParent parent,
+            ref LocalTransform transform)
+        {
+            if (animations.TryGetValue(parent.parent, out var anim))
+            {
+                originTransform.TryGetValue(parent.parent, out var worldTrans);
+                var localTrans = worldTrans;
+                localTrans.Position = MinionAnimationDB.Instance.GetPartTransform(anim.CurrectAnimation, partIndex.Index, anim.PlayTime).Position;
+                    //new float3(0, partIndex.Index, 0);
+                localTrans.Scale = 0.2f; //========== 크기 직접 지정 하고 있음
+
+                transform.Position = worldTrans.Position + localTrans.Position;
+                transform.Rotation = math.mul(worldTrans.Rotation, localTrans.Rotation);
+                transform.Scale = worldTrans.Scale * localTrans.Scale;
+            }
+        }
+    }
+    [BurstCompile]
+    public partial struct UpdateMinionAnimation : IJobEntity
     {
         public EntityCommandBuffer.ParallelWriter ecb;
+        [ReadOnly] public NativeParallelHashMap<Entity, MinionAnimation>.ReadOnly animations;
+        [ReadOnly] public NativeParallelHashMap<Entity, LocalTransform>.ReadOnly originTransform;
 
-        [ReadOnly] public NativeArray<MinionPart> parts;
-        [ReadOnly] public NativeArray<Entity> partsParent;
-        [ReadOnly] public NativeHashMap<Entity, MinionAnimation>.ReadOnly animations;
-        [ReadOnly] public NativeHashMap<Entity, LocalTransform>.ReadOnly transform;
-
-        public void Execute(int index)
+        public void Execute(Entity e, [EntityIndexInQuery] int index, in MinionPartIndex partIndex, in MinionPartParent parent,
+            ref LocalTransform transform)
         {
-            //var e = entities[index];
-            var part = parts[index];
-            var parent = partsParent[index];
-
-            if (Equals(part, Entity.Null))
-                return;
-
-            if (animations.TryGetValue(parent, out var anim))
+            if (animations.TryGetValue(parent.parent, out var anim))
             {
-                transform.TryGetValue(parent, out var worldTrans);
-                var localTrans = LocalTransform.Identity;
-                localTrans.Position = new float3(0, part.BodyIndex, 0);
-                localTrans.Scale = 1;
-                    //MinionAnimationDB.Instance.GetPartTransform(anim.CurrectAnimation, part.BodyIndex, anim.PlayTime);
-                        // -- 싱글톤에 접근하는게 성능에 영향 끼침 + NativeList 도 
-                
-                ecb.SetComponent(index, part.Part, new LocalTransform 
-                { 
+                originTransform.TryGetValue(parent.parent, out var worldTrans);
+                var localTrans = worldTrans;
+                localTrans.Position = //MinionAnimationDB.Instance.GetPartTransform(anim.CurrectAnimation, partIndex.Index, anim.PlayTime).Position;
+                    new float3(0, partIndex.Index, 0);
+                localTrans.Scale = 0.2f; //========== 크기 직접 지정 하고 있음
+
+
+                ecb.SetComponent(index, e, new LocalTransform
+                {
                     Position = worldTrans.Position + localTrans.Position,
                     Rotation = math.mul(worldTrans.Rotation, localTrans.Rotation),
-                    Scale = worldTrans.Scale * localTrans.Scale,
+                    Scale = worldTrans.Scale * localTrans.Scale
                 });
-
             }
-
         }
     }
 }

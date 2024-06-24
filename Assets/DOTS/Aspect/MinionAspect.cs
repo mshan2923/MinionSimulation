@@ -215,7 +215,7 @@ public readonly partial struct MinionAspect : IAspect
                     buffer.Add(new MinionPart
                     {
                         Part = spawnedEntity[i],
-                        BodyIndex = i
+                        SpawnBodyIndex = i
                     });
 
                     ecb.SetEnabled(index, spawnedEntity[i], false);
@@ -227,6 +227,31 @@ public readonly partial struct MinionAspect : IAspect
 
                 ecb.SetComponent(index, entity, lData);
             }
+        }
+    }
+
+    /// <summary>
+    /// allPartsParent is {Aspect.IsEnablePart : true ==> Spawned Minion Part / false ==> Spawn source entity}
+    /// </summary>
+    [System.Obsolete("Perfomance Issue - Array.Fill")]
+    public static void GetMinionsPart(NativeArray<MinionAspect> aspects, bool isNotSpawned,
+        ref NativeList<MinionPart> allParts, ref NativeList<Entity> allPartsParent)
+    {
+        for (int v = 0; v < aspects.Length; v++)
+        {
+            if (aspects[v].IsEnablePart == isNotSpawned)
+                continue;
+
+            var buffer = aspects[v].minionParts.ToNativeArray(Allocator.Temp);
+            var parents = new Entity[buffer.Length];
+            Array.Fill(parents, aspects[v].entity);
+            var parentNative = new NativeArray<Entity>(parents, Allocator.Temp);
+
+            allParts.AddRange(buffer);
+            allPartsParent.AddRange(parentNative);
+
+            buffer.Dispose();
+            parentNative.Dispose();
         }
     }
     #endregion Disabled
@@ -260,31 +285,6 @@ public readonly partial struct MinionAspect : IAspect
         }
     }
 
-    /// <summary>
-    /// allPartsParent is {Aspect.IsEnablePart : true ==> Spawned Minion Part / false ==> Spawn source entity}
-    /// </summary>
-    [System.Obsolete("Perfomance Issue - Array.Fill")]
-    public static void GetMinionsPart(NativeArray<MinionAspect> aspects , bool isNotSpawned,
-        ref NativeList<MinionPart> allParts, ref NativeList<Entity> allPartsParent)
-    {
-        for (int v = 0; v < aspects.Length; v++)
-        {
-            if (aspects[v].IsEnablePart == isNotSpawned)
-                continue;
-
-            var buffer = aspects[v].minionParts.ToNativeArray(Allocator.Temp);
-            var parents = new Entity[buffer.Length];
-            Array.Fill(parents, aspects[v].entity);
-            var parentNative = new NativeArray<Entity>(parents, Allocator.Temp);
-
-            allParts.AddRange(buffer);
-            allPartsParent.AddRange(parentNative);
-
-            buffer.Dispose();
-            parentNative.Dispose();
-        }
-    }
-
     #region JobSystem
 
     [BurstCompile]
@@ -309,18 +309,22 @@ public readonly partial struct MinionAspect : IAspect
             }
         }
     }
-    [BurstCompile]
+
+    //[BurstCompile] // ParentIndexData.Where ¶§¹®¿¡
     public partial struct PartSpawnJob_Parall : IJobParallelFor
     {
         public EntityCommandBuffer.ParallelWriter ecb;
 
-        [ReadOnly] public NativeList<MinionPart> Parts;
-        [ReadOnly] public NativeList<Entity> PartParents;
+        [ReadOnly] public NativeArray<MinionPart> Parts;
+        //[ReadOnly] public NativeList<Entity> PartParents;
+        [ReadOnly] public NativeArray<KeyValuePair<int, Entity>> ParentIndexData;
         public void Execute(int index)
         {
+            Entity Parent = ParentIndexData.AsParallel().Where(t => t.Key <= index).Last().Value;
+
             var spawned = ecb.Instantiate(index, Parts[index].Part);
-            ecb.AddSharedComponent(index ,spawned, new MinionPartParent { parent = PartParents[index] });
-            ecb.AddComponent(index, spawned, new MinionPartIndex { Index = Parts[index].BodyIndex });
+            ecb.AddSharedComponent(index ,spawned, new MinionPartParent { parent = Parent});
+            ecb.AddComponent(index, spawned, new MinionPartIndex { Index = Parts[index].SpawnBodyIndex });
         }
     }
 
@@ -334,14 +338,14 @@ public readonly partial struct MinionAspect : IAspect
 
         public void Execute(Entity entity, [EntityIndexInQuery] int index, ref MinionData minionData, ref DynamicBuffer<MinionPart> parts)
         {
-            if (targetParent == entity)//(Equals(targetParent, entity))
+            if (targetParent == entity)
             {
                 for (int i = 0; i < spawnedEntity.Length; i++)
                 {
                     parts[i] = new MinionPart
                     {
                         Part = spawnedEntity[i],
-                        BodyIndex = i
+                        SpawnBodyIndex = -1
                     };
 
                     //ecb.SetEnabled(index, spawnedEntity[startPartIndex + i], false);
@@ -357,7 +361,7 @@ public readonly partial struct MinionAspect : IAspect
     public partial struct ToggleJob : IJobParallelFor
     {
         public EntityCommandBuffer.ParallelWriter ecb;
-        [ReadOnly] public NativeList<Entity> spawnedEntity;
+        [ReadOnly] public NativeArray<Entity> spawnedEntity;
         public bool value;
         public void Execute(int index)
         {

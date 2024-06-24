@@ -24,7 +24,7 @@ public struct MinionData : IComponentData
 public struct MinionPart : IBufferElementData
 {
     public Entity Part;
-    public int BodyIndex;
+    public int SpawnBodyIndex;
 }
 public struct MinionPartIndex : IComponentData
 {
