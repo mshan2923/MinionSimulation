@@ -8,6 +8,8 @@ class EcsSpawner : MonoBehaviour
     public float Between = 0.5f;
     public bool Is3D = false;
     public GameObject Target;
+
+    public float spawnSize = 1f;
 }
 public struct EcsSpawerComponent : IComponentData
 {
@@ -16,6 +18,7 @@ public struct EcsSpawerComponent : IComponentData
     public float between;
     public bool is3D;
     public Entity Target;
+    public float spawnSize;
 }
 
 class EcsSpawnerBaker : Baker<EcsSpawner>
@@ -28,7 +31,8 @@ class EcsSpawnerBaker : Baker<EcsSpawner>
             amount = authoring.Amount,
             between = authoring.Between,
             is3D = authoring.Is3D,
-            Target = GetEntity(authoring.Target, TransformUsageFlags.Renderable)
+            Target = GetEntity(authoring.Target, TransformUsageFlags.Renderable),
+            spawnSize = authoring.spawnSize
         });
     }
 }

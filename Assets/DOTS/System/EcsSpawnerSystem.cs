@@ -38,7 +38,7 @@ public partial class EcsSpawnerSystem : SystemBase
         Enabled = false;
     }
 
-    //[BurstCompile]
+    [BurstCompile]
     public struct SpawnJob : IJobParallelFor
     {
         public EntityCommandBuffer.ParallelWriter ecb;
@@ -61,7 +61,8 @@ public partial class EcsSpawnerSystem : SystemBase
                 var spawned = ecb.Instantiate(index, data[index].Target);
 
                 var trans = LocalTransform.Identity;
-                trans.Scale = 1;
+                trans.Scale = data[index].spawnSize;
+
                 if (data[index].is3D)
                 {
                     trans.Position = new Unity.Mathematics.float3(i % width, i % width % width , i / width) * data[index].between;

@@ -10,6 +10,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
+using static MinionAnimationDB;
 
 [UpdateAfter(typeof(MinionSetUpSystem))]
 public partial class MinionSystem : SystemBase
@@ -63,14 +64,12 @@ public partial class MinionSystem : SystemBase
 
             new UpdateMinionAnimation_Ref()
             {
-                //ecb = ecb.AsParallelWriter(),
                 animations = AnimationDataParall.AsReadOnly(),
                 originTransform = MinionTransformParall.AsReadOnly(),
-                ClipDatas = clipData
+                ClipDatas = clipData,
+                ClipDataInterval = MinionAnimationDB.ClipDataInterval
             }.ScheduleParallel(setupHandle).Complete();
-            //=============== 크기조절 에 따른 위치 변경이 없음 , 크기 직접 지정 하고 있음 --> 초기값을 덮어 쓸 수 밖에 없음
-
-            // 싱글톤 방식으로 정보 저장은 어쩌다 접근하는거에 맞고 , 에니메이션 별 엔티티로 관리하면 되나?
+            //=============== 크기조절 에 따른 위치 변경이 없음 -> 초기값을 덮어 쓸 수 밖에 없음
 
             //Aspects.Dispose();
             AnimationDataParall.Dispose();
@@ -105,21 +104,36 @@ public partial class MinionSystem : SystemBase
         [ReadOnly] public NativeParallelHashMap<Entity, LocalTransform>.ReadOnly originTransform;
         [ReadOnly] public NativeArray<MinionClipData> ClipDatas;
 
+        [ReadOnly] public float ClipDataInterval;
+
         public void Execute(Entity e, [EntityIndexInQuery] int index, in MinionPartIndex partIndex, in MinionPartParent parent,
             ref LocalTransform transform)
         {
             if (animations.TryGetValue(parent.parent, out var anim))
             {
                 originTransform.TryGetValue(parent.parent, out var worldTrans);
-                //var localTrans = worldTrans;
-                //localTrans.Position = MinionAnimationDB.Instance.GetPartTransform(anim.CurrectAnimation, partIndex.Index, anim.PlayTime).Position;
-                //new float3(0, partIndex.Index, 0);
+                
+                MinionClipData clipData = default;
+                {
+                    if (ClipDatas[anim.CurrectAnimation].clipIndex == anim.CurrectAnimation)
+                    {
+                        clipData = ClipDatas[anim.CurrectAnimation];
+                    }
+                    else
+                    {
+                        foreach(var v in ClipDatas)
+                        {
+                            if (anim.CurrectAnimation == v.clipIndex)
+                            {
+                                clipData = v;
+                                break;
+                            }
+                        }
+                    }
+                }// is Correct ClipIndex
 
-                var localTrans = ClipDatas[anim.CurrectAnimation].assetReference.Value.parts[partIndex.Index]
-                    .frames[Mathf.FloorToInt(anim.PlayTime / ClipDatas[anim.CurrectAnimation].ClipDataInterval)];
-
-
-                localTrans.Scale = 0.2f; //========== 크기 직접 지정 하고 있음
+                var localTrans = clipData.assetReference.Value.parts[partIndex.Index]
+                    .frames[Mathf.FloorToInt(anim.PlayTime / ClipDataInterval)];
 
                 transform.Position = worldTrans.Position + localTrans.Position;
                 transform.Rotation = math.mul(worldTrans.Rotation, localTrans.Rotation);
@@ -143,7 +157,6 @@ public partial class MinionSystem : SystemBase
                 var localTrans = worldTrans;
                 localTrans.Position = //MinionAnimationDB.Instance.GetPartTransform(anim.CurrectAnimation, partIndex.Index, anim.PlayTime).Position;
                     new float3(0, partIndex.Index, 0);
-                localTrans.Scale = 0.2f; //========== 크기 직접 지정 하고 있음
 
 
                 ecb.SetComponent(index, e, new LocalTransform

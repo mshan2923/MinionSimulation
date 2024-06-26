@@ -155,6 +155,7 @@ MonoBehaviour:
   Between: 1.2
   Is3D: 0
   Target: {fileID: 2383167327171552641, guid: 776b30448712444448ac2d371a7e9d57, type: 3}
+  spawnSize: 0.2
 --- !u!4 &640513755
 Transform:
   m_ObjectHideFlags: 0

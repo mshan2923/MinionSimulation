@@ -6,6 +6,8 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Burst;
 using UnityEditor.Experimental.GraphView;
+using System.Linq;
+using static MinionAnimationDB;
 
 [UpdateAfter(typeof(MinionSetUpSystem))]
 public partial class MinionAnimationSystem : SystemBase
@@ -13,6 +15,15 @@ public partial class MinionAnimationSystem : SystemBase
     protected override void OnStartRunning()
     {
         base.OnStartRunning();
+    }
+    protected override void OnDestroy()
+    {
+        base.OnDestroy();
+
+        Entities.WithAll<MinionClipData>().ForEach((in MinionClipData clipData) =>
+        {
+            clipData.assetReference.Dispose();
+        }).ScheduleParallel(Dependency);
     }
     protected override void OnUpdate()
     {
@@ -53,32 +64,54 @@ public partial class MinionAnimationSystem : SystemBase
         var AnimQuery = GetEntityQuery(typeof(MinionAnimation), typeof(MinionData));
         var Animations = AnimQuery.ToComponentDataArray<MinionAnimation>(Allocator.TempJob);
 
+        var clipDataQuery = GetEntityQuery(typeof(MinionClipData));
+        var clipData = clipDataQuery.ToComponentDataArray<MinionClipData>(Allocator.TempJob);
+
         new UpdateAnimation()
         {
             animations = Animations,
+            clipDatas = clipData,
             delta = SystemAPI.Time.DeltaTime,
 
             TempAnimIndex = 0,
-            TempAnimLength = 3.8f,
         }.ScheduleParallel(AnimQuery, Dependency).Complete();
 
         Animations.Dispose();
+        clipData.Dispose();
     }
 
     [BurstCompile]
     public partial struct UpdateAnimation : IJobEntity
     {
         [ReadOnly] public NativeArray<MinionAnimation> animations;
+        [ReadOnly] public NativeArray<MinionClipData> clipDatas;
         public float delta;
 
-        public float TempAnimLength;
         public int TempAnimIndex;
 
         public void Execute(Entity entity, [EntityIndexInQuery] int index, ref MinionAnimation animation, in MinionData minionData)
         {
+            MinionClipData clipData = default;
+            {
+                if (clipDatas[TempAnimIndex].clipIndex == TempAnimIndex)
+                {
+                    clipData = clipDatas[TempAnimIndex];
+                }else
+                {
+                    foreach (var v in clipDatas)
+                    {
+                        if (TempAnimIndex == v.clipIndex)
+                        {
+                            clipData = v;
+                            break;
+                        }
+                    }
+                }
+            }// is Correct ClipIndex
+
             if (minionData.isEnablePart)
             {
-                if (animations[index].PlayTime + delta < TempAnimLength)
+                if (animations[index].PlayTime + delta < clipData.ClipLength)
                 {
                     animation.PlayTime = animations[index].PlayTime + delta;
                 }

@@ -1,4 +1,5 @@
 using Unity.Entities;
+using Unity.Mathematics;
 using Unity.Transforms;
 
 public struct MinionClipEntities : IComponentData
@@ -13,8 +14,9 @@ public struct MinionClipEntity
 public struct MinionClipData : IComponentData
 {
     public int clipIndex;
-    public float ClipDataInterval;
+    public float ClipLength;
     public BlobAssetReference<MinionClipPartData> assetReference;
+
 }
 public struct MinionClipPartData
 {

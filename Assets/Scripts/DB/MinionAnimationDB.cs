@@ -67,10 +67,7 @@ public class MinionAnimationDB : ScriptableObject
     [SerializeField] private MinionSpawnObjDB[] SpawnObjDBs;
 
     public GameObject DefaultObject;
-
-    //============ ( ClipIndex, BoneIndex, time ) 으로 LocalTransform 리턴 하는 함수
-    //============  Clip 의 Bone 갯수 리턴
-    //============ (ClipIndex, BoneIndex )으로 PartObject 리턴 
+ 
 
     private void OnEnable()
     {

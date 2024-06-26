@@ -38,11 +38,7 @@ public class MinionAnimationBaker : MonoBehaviour
 
         Childs = GetAllChilds(clipData.GetSkeletons, BakeCharacter);
 
-        //OnSnappedObject(clipData.GetSkeletons, DebugObj, DebugPartIndex);
 
-        //==== clip.SampleAnimation 으로 일정 시간의 클립 실행후 LocalTransfom 넣기
-
-        //int ClipDataLength = Mathf.FloorToInt(clip.Clip.length / ClipDataInterval);
         int ClipFrames = Mathf.FloorToInt(clipData.Clip.length / MinionAnimationDB.ClipDataInterval);
 
         var result = new ClipCurve[Childs.Length];

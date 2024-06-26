@@ -64,10 +64,7 @@ partial class MinionSetUpSystem : SystemBase
 
         {
             var allParts = new NativeList<MinionPart>(Allocator.Temp);
-            //var allPartsParent = new NativeList<Entity>(Allocator.TempJob);
             var ParentIndexData = new NativeArray<KeyValuePair<int, Entity>>(MinionEntity.Length, Allocator.TempJob);
-
-            //MinionAspect.GetMinionsPart(aspects, true, ref allParts, ref allPartsParent);
 
             for (int v = 0; v < MinionEntity.Length; v++)
             {
@@ -87,10 +84,9 @@ partial class MinionSetUpSystem : SystemBase
             {
                 ecb = ecb.AsParallelWriter(),
                 Parts = allPartArray,
-                //PartParents = allPartsParent,
                 ParentIndexData = ParentIndexData,
             }.Schedule(allParts.Length, 32, Dependency);
-            // ==== Buffer들을 전부 합치고 , 같은 크기로 MinionPartParent 값 준비후 , 한번에 스폰 
+            //Buffer들을 전부 합치고 , 같은 크기로 MinionPartParent 값 준비후 , 한번에 스폰 
 
             spawnHandle.Complete();
             ecb.Playback(EntityManager);
@@ -98,14 +94,12 @@ partial class MinionSetUpSystem : SystemBase
             ecb.Dispose();
             allParts.Dispose();
             allPartArray.Dispose();
-            //allPartsParent.Dispose();
             ParentIndexData.Dispose();
         }//Spawn
 
 
 
         var allPartQuery = Entities.WithSharedComponentFilter(new MinionPartParent { }).ToQuery();
-        //Debug.Log($"All Spawned Query : {allPartQuery.CalculateEntityCount()}");
 
         for (int i = 0; i < aspects.Length; i++)
         {
@@ -210,83 +204,4 @@ partial class MinionSetUpSystem : SystemBase
             partsList[index] = data;
         }
     }
-
-    #region Disable
-    //[BurstCompile]
-    public partial struct PartSpawnJob : IJobEntity
-    {
-        public EntityCommandBuffer.ParallelWriter ecb;
-        [ReadOnly] public int ClipIndex;
-        [ReadOnly] public NativeArray<MinionData> MinionDatas;
-
-        [ReadOnly] public NativeArray<MinionPart> minionBuffer;
-
-        public void Execute(Entity entity, [EntityIndexInQuery] int index , in MinionData minionData)
-        {
-            //if (Entity.Equals(Entity.Null, minionBuffer[index].Part))
-            //    return;
-
-            if (MinionDatas[index].isSpawnedPart == false)
-            {
-                for (int i = 0; i < minionBuffer.Length; i++)
-                {
-                    var spawned = ecb.Instantiate(index, minionBuffer[i].Part);
-
-                    var trans = MinionAnimationDB.Instance.GetPartTransform(ClipIndex, i, 0);
-                    trans.Scale = 0.2f;// ========= 임시
-                    ecb.SetComponent(index, spawned, trans);//Work
-
-                    //ecb.AddComponent(index, spawned, new MinionPartTag());
-                    //ecb.AddComponent(index, spawned, new Parent { Value = entity});
-                    ecb.AddSharedComponent(index, spawned, new MinionPartParent { parent = entity });
-                }
-            }
-        }
-    }
-
-    public partial struct SelectNeedSetupJob : IJobParallelFor
-    {
-        public EntityCommandBuffer.ParallelWriter ecb;
-        public NativeArray<Entity> entities;
-        public NativeArray<Parent> parents;
-
-        public Entity targetParent;
-        public NativeArray<Entity> spawnedEntity;
-
-        //public void Execute(Entity entity, [EntityIndexInQuery] int index, MinionPartTag partTag, Parent parent)
-        public void Execute(int index)
-        {
-            if (targetParent == parents[index].Value)//(Equals(targetParent, parents[index].Value))
-            {
-                spawnedEntity[index] = entities[index];
-            }
-        }
-    }
-
-    public partial struct PartSpawnSetupJob : IJobEntity
-    {
-        public EntityCommandBuffer.ParallelWriter ecb;
-        [ReadOnly] public Entity targetParent;
-        [ReadOnly] public NativeArray<Entity> spawnedEntity;
-
-        public void Execute(Entity entity, [EntityIndexInQuery] int index, ref MinionData minionData, ref DynamicBuffer<MinionPart> parts)
-        {
-            if (Entity.Equals(targetParent, entity))
-            {
-                for (int i = 0; i < spawnedEntity.Length; i++)
-                {
-                    parts[i] = new MinionPart
-                    {
-                        Part = spawnedEntity[i],
-                        SpawnBodyIndex = i
-                    };
-
-                    ecb.SetEnabled(index, spawnedEntity[i], false);
-                }
-
-                minionData.isSpawnedPart = true;
-            }
-        }
-    }
-    #endregion
 }

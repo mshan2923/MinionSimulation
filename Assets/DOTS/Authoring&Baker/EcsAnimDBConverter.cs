@@ -52,9 +52,9 @@ class EcsAnimDBConverterBaker : Baker<EcsAnimDBConverter>
             AddComponent(clipEntity, new MinionClipData
             {
                 clipIndex = c,
-                ClipDataInterval = MinionAnimationDB.ClipDataInterval,
+                ClipLength = db.GetClipLength(c),
                 assetReference = clipRef
-                //===== 여기에 BlobAsset 해쉬값 저장해 , 메모리 할당 해제 해줘야 하나?
+                //MinionAnimationSystem이 제거될때  메모리 할당 해제 
             });
             clipDataBuilder.Dispose();
         }
