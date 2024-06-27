@@ -132,40 +132,27 @@ public partial class MinionSystem : SystemBase
                     }
                 }// is Correct ClipIndex
 
+
                 var localTrans = clipData.assetReference.Value.parts[partIndex.Index]
                     .frames[Mathf.FloorToInt(anim.PlayTime / ClipDataInterval)];
 
+                var rot = math.mul(worldTrans.Rotation, localTrans.Rotation);
+                rot = math.mul(rot, clipData.assetReference.Value.parts[partIndex.Index].OffsetTransform.Rotation);               
+
                 transform.Position = worldTrans.Position + localTrans.Position;
-                transform.Rotation = math.mul(worldTrans.Rotation, localTrans.Rotation);
+                transform.Rotation = rot;
                 transform.Scale = worldTrans.Scale * localTrans.Scale;
             }
         }
-    }
-    [BurstCompile]
-    public partial struct UpdateMinionAnimation : IJobEntity
-    {
-        public EntityCommandBuffer.ParallelWriter ecb;
-        [ReadOnly] public NativeParallelHashMap<Entity, MinionAnimation>.ReadOnly animations;
-        [ReadOnly] public NativeParallelHashMap<Entity, LocalTransform>.ReadOnly originTransform;
 
-        public void Execute(Entity e, [EntityIndexInQuery] int index, in MinionPartIndex partIndex, in MinionPartParent parent,
-            ref LocalTransform transform)
+        public LocalTransform Mul(LocalTransform a, LocalTransform b)
         {
-            if (animations.TryGetValue(parent.parent, out var anim))
+            return new LocalTransform
             {
-                originTransform.TryGetValue(parent.parent, out var worldTrans);
-                var localTrans = worldTrans;
-                localTrans.Position = //MinionAnimationDB.Instance.GetPartTransform(anim.CurrectAnimation, partIndex.Index, anim.PlayTime).Position;
-                    new float3(0, partIndex.Index, 0);
-
-
-                ecb.SetComponent(index, e, new LocalTransform
-                {
-                    Position = worldTrans.Position + localTrans.Position,
-                    Rotation = math.mul(worldTrans.Rotation, localTrans.Rotation),
-                    Scale = worldTrans.Scale * localTrans.Scale
-                });
-            }
+                Position = a.Position + b.Position,
+                Rotation = math.mul(a.Rotation, b.Rotation),
+                Scale = a.Scale * b.Scale
+            };
         }
     }
 }

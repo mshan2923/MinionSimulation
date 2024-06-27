@@ -64,15 +64,6 @@ public class MinionAnimationBaker : MonoBehaviour
 
         db.AddClipDatas(ClipIndex, result);
     }
-    public void Bake_Debug(int ClipIndex)
-    {
-        db = MinionAnimationDB.Instance;
-        var clipData = db.animationClips[ClipIndex];
-
-        Childs = GetAllChilds(clipData.GetSkeletons, BakeCharacter);
-
-        OnSnappedObject(clipData.GetSkeletons, DebugObj, DebugPartIndex);
-    }
 
 
     public Transform[] GetAllChilds(SkeletonBone[] skeletons, Animator baker)
@@ -174,10 +165,6 @@ public class MinionAnimationBakerEditor : Editor
             }
         }
 
-        if (GUILayout.Button("Bake Debug"))
-        {
-            onwer.Bake_Debug(onwer.DebugClipIndex);
-        }
 
         if (GUILayout.Button("Spnapped Obj"))
         {

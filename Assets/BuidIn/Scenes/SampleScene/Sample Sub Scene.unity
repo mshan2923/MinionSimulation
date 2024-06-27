@@ -151,11 +151,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 510545b40c610f549a65149b682fffa6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Amount: 5000
+  Amount: 1000
   Between: 1.2
   Is3D: 0
   Target: {fileID: 2383167327171552641, guid: 776b30448712444448ac2d371a7e9d57, type: 3}
-  spawnSize: 0.2
+  spawnSize: 1
 --- !u!4 &640513755
 Transform:
   m_ObjectHideFlags: 0

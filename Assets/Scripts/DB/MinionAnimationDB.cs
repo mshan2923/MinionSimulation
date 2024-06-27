@@ -128,6 +128,7 @@ public class MinionAnimationDB : ScriptableObject
         return PartCurves[GetDatasIndex(ClipIndex, BoneIndex)].Curve[index].transform;
     }
 
+
     public float GetClipLength(int ClipIndex)
     {
         return PartCurves[ClipDataIndex[ClipIndex]].Curve.Length * ClipDataInterval;
@@ -162,7 +163,7 @@ public class MinionAnimationDB : ScriptableObject
 
         try
         {
-            obj = SpawnObjDBs[ClipIndex].Objects.GetVaule(BoneIndex);
+            obj = SpawnObjDBs[ClipIndex].SpawnParts.GetVaule(BoneIndex).Object;
 
             if (obj != null)
                 return obj;
@@ -175,5 +176,9 @@ public class MinionAnimationDB : ScriptableObject
         {
             return null;
         }
+    }
+    public LocalTransform GetSpawnOffset(int ClipIndex, int BoneIndex)
+    {
+        return SpawnObjDBs[ClipIndex].SpawnParts.GetVaule(BoneIndex).offset.transform;
     }
 }

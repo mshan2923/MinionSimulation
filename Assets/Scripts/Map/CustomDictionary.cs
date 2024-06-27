@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UI;
+
 
 #if UNITY_EDITOR
 using Expand;
@@ -823,6 +825,7 @@ public class MapEditor_KV : PropertyDrawer
 
     //float SlotOffset = 10f;
     UnityEditorInternal.ReorderableList list;
+    float AreaSlider = 0.3f;
 
     #region Disable
     /*
@@ -904,23 +907,29 @@ public class MapEditor_KV : PropertyDrawer
                     rect.x += 10;
                     rect.width -= 10;
 
-                    EditorGUI.PropertyField(new Rect(rect.x, rect.y, rect.width * 0.5f, rect.height),
+                    EditorGUI.PropertyField(new Rect(rect.x, rect.y, rect.width * AreaSlider, rect.height),
                         Slot.GetArrayElementAtIndex(index).FindPropertyRelative("Key"), GUIContent.none, true);
 
-                    EditorGUI.PropertyField(new Rect((rect.x + rect.width * 0.5f), rect.y, rect.width * 0.5f, rect.height),
+                    EditorGUIUtility.labelWidth = 75;
+                    EditorGUI.PropertyField(new Rect((rect.x + rect.width * AreaSlider), rect.y, rect.width * (1 - AreaSlider), rect.height),
                         Slot.GetArrayElementAtIndex(index).FindPropertyRelative("Vaule"), GUIContent.none, true);
                 }
             };
         }
 
-        return EditorGUIUtility.singleLineHeight + (property.isExpanded ? list.GetHeight() : 0);
+        return EditorGUIUtility.singleLineHeight 
+            + (property.isExpanded ? list.GetHeight() + EditorGUIUtility.singleLineHeight : 0);
     }
     public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
     {
         DrawRect = new Rect(position.x, position.y, position.width, EditorGUIUtility.singleLineHeight);
+
         property.isExpanded = EditorGUI.Foldout(DrawRect, property.isExpanded, new GUIContent(property.displayName), true);
         if (property.isExpanded)
         {
+            DrawRect = new Rect(position.x, (DrawRect.y + DrawRect.height), position.width, EditorGUIUtility.singleLineHeight);
+            AreaSlider = EditorGUI.Slider(DrawRect, AreaSlider, 0, 1);
+
             list.DoList(new Rect(DrawRect.x, (DrawRect.y + DrawRect.height), DrawRect.width, DrawRect.height));
         }
     }

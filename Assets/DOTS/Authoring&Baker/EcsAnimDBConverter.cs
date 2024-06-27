@@ -31,21 +31,25 @@ class EcsAnimDBConverterBaker : Baker<EcsAnimDBConverter>
             {
                 int clipSize = db.GetClipSize(c);
                 clipPartBuilder[b].BodyIndex = b;
+                clipPartBuilder[b].OffsetTransform = db.GetSpawnOffset(c, b);
 
-                var obj = db.GetSpawnObj(c, b, true);
-
-                if (obj != null)
                 {
-                    var clipFrameBuilder = clipDataBuilder.Allocate(ref clipPartBuilder[b].frames, clipSize);
-                    for (int f = 0; f < clipSize; f++)
+                    var obj = db.GetSpawnObj(c, b, true);
+
+                    if (obj != null)
                     {
-                        clipFrameBuilder[f] = db.GetPartTransform(c, b, f);
+                        var clipFrameBuilder = clipDataBuilder.Allocate(ref clipPartBuilder[b].frames, clipSize);
+                        for (int f = 0; f < clipSize; f++)
+                        {
+                            clipFrameBuilder[f] = db.GetPartTransform(c, b, f);
+                        }
                     }
-                }else
-                {
-                    clipDataBuilder.Allocate(ref clipPartBuilder[b].frames, 0);
-                }
-            }
+                    else
+                    {
+                        clipDataBuilder.Allocate(ref clipPartBuilder[b].frames, 0);
+                    }
+                }//Set Frames
+            }//Set MinionClipFrameData
 
             var clipRef = clipDataBuilder.CreateBlobAssetReference<MinionClipPartData>(Allocator.Persistent);
             AddBlobAsset(ref clipRef, out var clipHash);

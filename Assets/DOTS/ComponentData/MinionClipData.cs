@@ -25,5 +25,6 @@ public struct MinionClipPartData
 public struct MinionClipFrameData
 {
     public int BodyIndex;
+    public LocalTransform OffsetTransform;
     public BlobArray<LocalTransform> frames;
 }
