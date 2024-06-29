@@ -19,6 +19,7 @@ public class MinionSpawnObjDB : ScriptableObject
         public GameObject Object;
         public TransformData offset;
     }
+    [NonReorderable]
     public Map<string, SpawnSlot> SpawnParts = new();
 
     public void SetUp()

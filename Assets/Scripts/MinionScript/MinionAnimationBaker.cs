@@ -15,10 +15,8 @@ public class MinionAnimationBaker : MonoBehaviour
 
     [SerializeField] private Transform[] Childs;
 
-    [Space(20)]
+    [HideInInspector]
     public int DebugClipIndex;
-    public GameObject DebugObj;
-    public int DebugPartIndex;
 
     void Start()
     {
@@ -35,6 +33,10 @@ public class MinionAnimationBaker : MonoBehaviour
     {
         db = MinionAnimationDB.Instance;
         var clipData = db.animationClips[ClipIndex];
+
+        if (BakeCharacter == null)
+            return;
+        BakeCharacter.transform.rotation = Quaternion.identity;
 
         Childs = GetAllChilds(clipData.GetSkeletons, BakeCharacter);
 
@@ -54,7 +56,7 @@ public class MinionAnimationBaker : MonoBehaviour
                 clipData.Clip.SampleAnimation(BakeCharacter.gameObject, playTime);
 
                 var data = new TransformData();
-                data.position = Childs[p].transform.position;
+                data.position = Childs[p].transform.position - BakeCharacter.transform.position;
                 data.rotation = Childs[p].transform.rotation;
                 data.scale = Childs[p].transform.localScale.y;
 
@@ -166,22 +168,17 @@ public class MinionAnimationBakerEditor : Editor
         }
 
 
-        if (GUILayout.Button("Spnapped Obj"))
-        {
-            var skel = db.animationClips[onwer.DebugClipIndex].GetSkeletons;
-            onwer.OnSnappedObject(skel, onwer.DebugObj, onwer.DebugPartIndex);
-        }
-
         ClipSlider = EditorGUILayout.Toggle("Clip Play Slider", ClipSlider);
         if (ClipSlider)
         {
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("DebugClipIndex"));
+
             if (onwer.DebugClipIndex >= 0 && onwer.DebugClipIndex < db.animationClips.Length)
             {
                 playTime = EditorGUILayout.Slider(playTime, 0, db.animationClips[onwer.DebugClipIndex].Clip.length);
                 db.animationClips[onwer.DebugClipIndex].Clip.SampleAnimation(onwer.BakeCharacter.gameObject, playTime);
 
                 var skel = db.animationClips[onwer.DebugClipIndex].GetSkeletons;
-                onwer.OnSnappedObject(skel, onwer.DebugObj, onwer.DebugPartIndex);
             }
         }
 

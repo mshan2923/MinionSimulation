@@ -157,6 +157,11 @@ public class MinionAnimationDB : ScriptableObject
         PartCurves = temp.ToArray();
     }
 
+
+    public Map<string, MinionSpawnObjDB.SpawnSlot>.MapSlot GetSpawnSlotData(int ClipIndex, int BodyIndex)
+    {
+        return SpawnObjDBs[ClipIndex].SpawnParts.Get()[BodyIndex];
+    }
     public GameObject GetSpawnObj(int ClipIndex, int BoneIndex, bool AllowNull)
     {
         GameObject obj = DefaultObject;
