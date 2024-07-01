@@ -1,5 +1,6 @@
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 
 public struct MinionTag : IComponentData {}
 
@@ -17,9 +18,8 @@ public struct MinionData : IComponentData
 
     public int Parts;
 
-    public Entity TestDefaultObj;
-
     public float DisableCounter;
+    public float3 ImpactLocation;
 }
 public struct MinionPart : IBufferElementData
 {

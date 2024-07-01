@@ -19,11 +19,12 @@ public partial class MinionAnimationSystem : SystemBase
     protected override void OnDestroy()
     {
         base.OnDestroy();
-
+        /*
         Entities.WithAll<MinionClipData>().ForEach((in MinionClipData clipData) =>
         {
             clipData.assetReference.Dispose();
-        }).ScheduleParallel(Dependency);
+        }).ScheduleParallel(Dependency).Complete();
+        *///굳이 안해도 종료시 되나?
     }
     protected override void OnUpdate()
     {
@@ -63,20 +64,28 @@ public partial class MinionAnimationSystem : SystemBase
 
         var AnimQuery = GetEntityQuery(typeof(MinionAnimation), typeof(MinionData));
         var Animations = AnimQuery.ToComponentDataArray<MinionAnimation>(Allocator.TempJob);
+        var Minions = AnimQuery.ToComponentDataArray<MinionData>(Allocator.TempJob);
 
         var clipDataQuery = GetEntityQuery(typeof(MinionClipData));
         var clipData = clipDataQuery.ToComponentDataArray<MinionClipData>(Allocator.TempJob);
 
-        new UpdateAnimation()
+        var updateHandle = new UpdateAnimation()
         {
             animations = Animations,
             clipDatas = clipData,
             delta = SystemAPI.Time.DeltaTime,
+        }.ScheduleParallel(AnimQuery, Dependency);
 
-            TempAnimIndex = 0,
-        }.ScheduleParallel(AnimQuery, Dependency).Complete();
+        var seperateData = SystemAPI.GetSingleton<SeparatePartComponent>();
+        new SeperateParts()
+        {
+            datas = Minions,
+            Delta = SystemAPI.Time.DeltaTime,
+            separateData = seperateData,
+        }.ScheduleParallel(AnimQuery, updateHandle).Complete();
 
         Animations.Dispose();
+        Minions.Dispose();
         clipData.Dispose();
     }
 
@@ -87,20 +96,21 @@ public partial class MinionAnimationSystem : SystemBase
         [ReadOnly] public NativeArray<MinionClipData> clipDatas;
         public float delta;
 
-        public int TempAnimIndex;
-
         public void Execute(Entity entity, [EntityIndexInQuery] int index, ref MinionAnimation animation, in MinionData minionData)
         {
             MinionClipData clipData = default;
             {
-                if (clipDatas[TempAnimIndex].clipIndex == TempAnimIndex)
+                if (animations[index].CurrectAnimation < 0)
+                    return;
+
+                if (clipDatas[animations[index].CurrectAnimation].clipIndex == animations[index].CurrectAnimation)
                 {
-                    clipData = clipDatas[TempAnimIndex];
+                    clipData = clipDatas[animations[index].CurrectAnimation];
                 }else
                 {
                     foreach (var v in clipDatas)
                     {
-                        if (TempAnimIndex == v.clipIndex)
+                        if (animations[index].CurrectAnimation == v.clipIndex)
                         {
                             clipData = v;
                             break;
@@ -111,6 +121,9 @@ public partial class MinionAnimationSystem : SystemBase
 
             if (minionData.isEnablePart)
             {
+                if (minionData.DisableCounter >= 0)
+                    return;
+
                 if (animations[index].PlayTime + delta < clipData.ClipLength)
                 {
                     animation.PlayTime = animations[index].PlayTime + delta;
@@ -120,6 +133,29 @@ public partial class MinionAnimationSystem : SystemBase
                     animation.PlayTime = 0;                    
                 }
             }
+        }
+    }
+    public partial struct SeperateParts : IJobEntity
+    {
+        public NativeArray<MinionData> datas;
+        public float Delta;
+        public SeparatePartComponent separateData;
+
+        public void Execute([EntityIndexInQuery] int index, ref MinionData minion)
+        {
+            if (datas[index].DisableCounter < 0)
+                return;
+
+            if (separateData.SeparateTime + separateData.FalloffTime > datas[index].DisableCounter + Delta)
+            {
+                minion.DisableCounter = datas[index].DisableCounter + Delta;
+            }else
+            {
+                //minion.DisableCounter = separateData.SeparateTime + separateData.FalloffTime;
+                minion.isEnablePart = false;
+            }//Disable Minion -> 부위들만 비활성화 하는거라서
+             //MinionSystem에서 부위 tranform 업데이트시 MinionData.isEnablePart값이 false면 비활성화
+
         }
     }
 }

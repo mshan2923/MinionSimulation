@@ -16,7 +16,7 @@ public readonly partial struct MinionAspect : IAspect
     public readonly Entity entity;
 
     //[NativeDisableUnsafePtrRestriction]
-    private readonly RefRW<MinionData> minionData;
+    public readonly RefRW<MinionData> minionData;
     //[NativeDisableUnsafePtrRestriction, ReadOnly]//--JobSystem에서 Aspect 쓰기위해서
     public readonly DynamicBuffer<MinionPart> minionParts;
     public readonly RefRW<MinionAnimation> minionAnimation;

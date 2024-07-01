@@ -40,64 +40,85 @@ public partial class MinionSystem : SystemBase
             // 모든 Minion 마다 Part들을 위치 업데이트...
             //한번에 적용하기 위해 , 데이터 준비한후 , 적용
             // 먼저 Minion 목록 에서 
-                // 모든 부위
-                // BoneIndex
-                // 캐릭터 엔티티
+            // 모든 부위
+            // BoneIndex
+            // 캐릭터 엔티티
             // HashMap<캐릭터 엔티티, MinionAnimation>
 
+            var MinionsParall = new NativeParallelHashMap<Entity, MinionData>(MinionEntities.Length, Allocator.TempJob);
             var AnimationDataParall = new NativeParallelHashMap<Entity, MinionAnimation>(MinionEntities.Length, Allocator.TempJob);
             var MinionTransformParall = new NativeParallelHashMap<Entity, LocalTransform>(MinionEntities.Length, Allocator.TempJob);
 
             var clipData = GetEntityQuery(typeof(MinionClipData)).ToComponentDataArray<MinionClipData>(Allocator.TempJob);
 
-            //var ecb = SystemAPI.GetSingleton<BeginSimulationEntityCommandBufferSystem.Singleton>()
-            //    .CreateCommandBuffer(EntityManager.WorldUnmanaged);
+            var PartsQuery = GetEntityQuery(typeof(MinionPartIndex), typeof(MinionPartParent), typeof(LocalTransform));
+            var PartsTransform = PartsQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
+
+            var ecb = SystemAPI.GetSingleton<BeginSimulationEntityCommandBufferSystem.Singleton>()
+                .CreateCommandBuffer(EntityManager.WorldUnmanaged);
 
             AnimationDataParall.Capacity = MinionEntities.Length;
             MinionTransformParall.Capacity = MinionEntities.Length;
 
             var setupHandle = new SetUpHashMap()
             {
+                MinionsParall = MinionsParall.AsParallelWriter(),
                 AnimationDataParall = AnimationDataParall.AsParallelWriter(),
                 MinionTransformParall = MinionTransformParall.AsParallelWriter()
             }.ScheduleParallel(Dependency);
 
-            new UpdateMinionAnimation_Ref()
+            var animHandle = new UpdateMinionAnimation_Ref()
             {
                 animations = AnimationDataParall.AsReadOnly(),
                 originTransform = MinionTransformParall.AsReadOnly(),
                 ClipDatas = clipData,
                 ClipDataInterval = MinionAnimationDB.ClipDataInterval
-            }.ScheduleParallel(setupHandle).Complete();
-            //=============== 크기조절 에 따른 위치 변경이 없음 -> 초기값을 덮어 쓸 수 밖에 없음
+            }.ScheduleParallel(PartsQuery, setupHandle);
+            //=============== 크기조절 에 따른 위치 변경이 없음 
 
-            //Aspects.Dispose();
+            var seperateData = SystemAPI.GetSingleton<SeparatePartComponent>();
+
+            new UpdateSeperteTrasform()
+            {
+                ecb = ecb.AsParallelWriter(),
+                minions = MinionsParall.AsReadOnly(),
+                originTransform = MinionTransformParall.AsReadOnly(),
+
+                seperate = seperateData,
+                PartsTransform = PartsTransform,
+                delta = SystemAPI.Time.DeltaTime
+            }.ScheduleParallel(PartsQuery, animHandle).Complete();
+
+            MinionsParall.Dispose();
             AnimationDataParall.Dispose();
             MinionTransformParall.Dispose();
+            PartsTransform.Dispose();
             clipData.Dispose();
         }
 
         MinionEntities.Dispose();
-        //Aspects.Dispose();
         MinionDatas.Dispose();
     }
 
     [BurstCompile]
     public partial struct SetUpHashMap : IJobEntity
     {
+        public NativeParallelHashMap<Entity, MinionData>.ParallelWriter MinionsParall;
         public NativeParallelHashMap<Entity, MinionAnimation>.ParallelWriter AnimationDataParall;
         public NativeParallelHashMap<Entity, LocalTransform>.ParallelWriter MinionTransformParall;
         public void Execute(Entity entity, in MinionAnimation animation, in MinionData minionData, in LocalTransform transform)
         {
+            MinionsParall.TryAdd(entity, minionData);
+            MinionTransformParall.TryAdd(entity, transform);
+
             if (minionData.isEnablePart && minionData.DisableCounter <= 0)
             {
                 AnimationDataParall.TryAdd(entity, animation);
-                MinionTransformParall.TryAdd(entity, transform);
             }
         }
     }
 
-    //[BurstCompile]
+    [BurstCompile]
     public partial struct UpdateMinionAnimation_Ref : IJobEntity
     {
         [ReadOnly] public NativeParallelHashMap<Entity, MinionAnimation>.ReadOnly animations;
@@ -145,14 +166,53 @@ public partial class MinionSystem : SystemBase
             }
         }
 
-        public LocalTransform Mul(LocalTransform a, LocalTransform b)
+    }
+
+    public partial struct UpdateSeperteTrasform : IJobEntity
+    {
+        public EntityCommandBuffer.ParallelWriter ecb;
+        [ReadOnly] public NativeParallelHashMap<Entity, MinionData>.ReadOnly minions;
+        [ReadOnly] public NativeParallelHashMap<Entity, LocalTransform>.ReadOnly originTransform;
+
+        [ReadOnly] public SeparatePartComponent seperate;
+        [ReadOnly] public NativeArray<LocalTransform> PartsTransform;
+        public float delta;
+
+        public void Execute(Entity entity, [EntityIndexInQuery] int index, in MinionPartIndex partIndex, in MinionPartParent parent,
+            ref LocalTransform transform)
         {
-            return new LocalTransform
+
+            if (minions.TryGetValue(parent.parent, out var minion))
             {
-                Position = a.Position + b.Position,
-                Rotation = math.mul(a.Rotation, b.Rotation),
-                Scale = a.Scale * b.Scale
-            };
+                originTransform.TryGetValue(parent.parent, out var origin);
+
+                if (minion.isEnablePart == false)
+                {
+                    //수명 다함
+                    ecb.SetEnabled(index, entity, false);
+                    return;
+                }
+
+                if (minion.DisableCounter >= 0 && minion.DisableCounter < seperate.SeparateTime + seperate.FalloffTime)
+                {
+                    var offset = math.normalize(PartsTransform[index].Position - origin.Position);
+                    var impactOffset = math.normalize(PartsTransform[index].Position - minion.ImpactLocation);
+
+                    transform.Position = PartsTransform[index].Position
+                        + math.normalize(offset + impactOffset) * (seperate.Speed * delta)
+                        + seperate.Gravity * delta;
+                    // 가상의 바닥 적용할려면 속도값 필요
+
+                    if (seperate.SeparateTime <= minion.DisableCounter)
+                    {
+                        transform.Scale = 1 - ((minion.DisableCounter - seperate.SeparateTime) / seperate.FalloffTime);
+                    }//FallOff - 크기 감소
+                }
+                else if (minion.DisableCounter >= seperate.SeparateTime + seperate.FalloffTime)
+                {
+                    ecb.SetEnabled(index, entity, false);
+                }//수명 다함
+            }
         }
     }
 }

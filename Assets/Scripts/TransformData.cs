@@ -19,10 +19,49 @@ public struct TransformData
         rotation = transform.Rotation;
         scale = transform.Scale;
     }
+    public TransformData(Transform transform , bool isLocalScale = true)
+    {
+        position = transform.position;
+        rotation = transform.rotation;
+        scale = isLocalScale ? transform.localScale : transform.lossyScale;
+    }
 
     public LocalTransform transform
     {
         get => new() { Position = position, Rotation = rotation, Scale = scale.y };
+    }
+
+    public Vector3 Position
+    {
+        get => position;
+    }
+
+    public static TransformData operator *(TransformData a, TransformData b)
+    {
+        return new TransformData
+        {
+            position = a.position + b.position,
+            rotation = math.mul(a.rotation, b.rotation),
+            scale = a.scale * b.scale
+        };
+    }
+    public static LocalTransform operator *(LocalTransform a, TransformData b)
+    {
+        return new LocalTransform
+        {
+            Position = a.Position + b.position,
+            Rotation = math.mul(a.Rotation, b.rotation),
+            Scale = a.Scale * b.scale.x
+        };
+    }
+    public static LocalTransform operator *(TransformData a, LocalTransform b)
+    {
+        return new LocalTransform
+        {
+            Position = a.position + b.Position,
+            Rotation = math.mul(a.rotation, b.Rotation),
+            Scale = a.scale.x * b.Scale
+        };
     }
 }
 

@@ -1,5 +1,6 @@
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 using UnityEngine;
 
 class CharacterAuthoring : MonoBehaviour
@@ -47,9 +48,9 @@ class CharacterAuthoringBaker : Baker<CharacterAuthoring>
                         AvaterName = targetAvatar.name,
                         isSpawnedPart = false,
                         isEnablePart = false,
-                        TestDefaultObj = GetEntity(MinionAnimationDB.Instance.DefaultObject, TransformUsageFlags.Renderable),
                         Parts = targetAvatar.humanDescription.skeleton.Length,
-                        DisableCounter = -1
+                        DisableCounter = -1,
+                        ImpactLocation = float3.zero
                     }
                 );
 

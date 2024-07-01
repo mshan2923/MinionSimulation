@@ -168,7 +168,7 @@ public class MinionAnimationBakerEditor : Editor
         }
 
 
-        ClipSlider = EditorGUILayout.Toggle("Clip Play Slider", ClipSlider);
+        ClipSlider = EditorGUILayout.Foldout(ClipSlider, "Clip Play Slider", true);
         if (ClipSlider)
         {
             EditorGUILayout.PropertyField(serializedObject.FindProperty("DebugClipIndex"));
