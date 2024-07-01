@@ -65,6 +65,8 @@ public class MinionAnimationBaker : MonoBehaviour
         }
 
         db.AddClipDatas(ClipIndex, result);
+
+        EditorUtility.SetDirty(db);
     }
 
 

@@ -97,6 +97,5 @@ public class TransformDataEditor : PropertyDrawer
             EditorGUI.PropertyField(DrawRect, property.FindPropertyRelative("scale"));
         }
     }
-
 }
 #endif

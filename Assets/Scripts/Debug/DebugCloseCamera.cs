@@ -51,8 +51,9 @@ public class DebugCloseCamera : MonoBehaviour
             if (Physics.Raycast(cameraTrans.position, ray.direction, out var hitInfo))
             {
                 AddedPos += MoveSpeed * Time.deltaTime * (hitInfo.point - (StartPoint + AddedPos)).normalized;
-                Camera.main.transform.position = Vector3.Lerp(origin.position, StartPoint + CloseTransform.Position, ZoomRate) + AddedPos;
-                Camera.main.transform.rotation = Quaternion.Lerp(origin.rotation, CloseTransform.rotation, ZoomRate);
+                Camera.main.transform.SetPositionAndRotation(
+                    Vector3.Lerp(origin.position, StartPoint + CloseTransform.Position, ZoomRate) + AddedPos,
+                    Quaternion.Lerp(origin.rotation, CloseTransform.rotation, ZoomRate));
             }
         }
 
