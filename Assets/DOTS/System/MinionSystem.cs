@@ -16,6 +16,7 @@ using static MinionAnimationDB;
 public partial class MinionSystem : SystemBase
 {
     EntityQuery Minions;
+
     protected override void OnStartRunning()
     {
         base.OnStartRunning();
@@ -32,11 +33,10 @@ public partial class MinionSystem : SystemBase
     }
     protected override void OnUpdate()
     {
-
-        var MinionEntities = Minions.ToEntityArray(Allocator.TempJob);
-        var MinionDatas = Minions.ToComponentDataArray<MinionData>(Allocator.TempJob);
-
         {
+            var MinionEntities = Minions.ToEntityArray(Allocator.TempJob);
+            var MinionDatas = Minions.ToComponentDataArray<MinionData>(Allocator.TempJob);
+
             // 모든 Minion 마다 Part들을 위치 업데이트...
             //한번에 적용하기 위해 , 데이터 준비한후 , 적용
             // 먼저 Minion 목록 에서 
@@ -54,7 +54,7 @@ public partial class MinionSystem : SystemBase
             var PartsQuery = GetEntityQuery(typeof(MinionPartIndex), typeof(MinionPartParent), typeof(LocalTransform));
             var PartsTransform = PartsQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
 
-            var ecb = SystemAPI.GetSingleton<BeginSimulationEntityCommandBufferSystem.Singleton>()
+            var ecb = SystemAPI.GetSingleton<BeginFixedStepSimulationEntityCommandBufferSystem.Singleton>()
                 .CreateCommandBuffer(EntityManager.WorldUnmanaged);
 
             AnimationDataParall.Capacity = MinionEntities.Length;
@@ -94,10 +94,10 @@ public partial class MinionSystem : SystemBase
             MinionTransformParall.Dispose();
             PartsTransform.Dispose();
             clipData.Dispose();
-        }
 
-        MinionEntities.Dispose();
-        MinionDatas.Dispose();
+            MinionEntities.Dispose();
+            MinionDatas.Dispose();
+        }
     }
 
     [BurstCompile]

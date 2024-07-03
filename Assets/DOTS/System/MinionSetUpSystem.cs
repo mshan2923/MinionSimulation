@@ -205,7 +205,9 @@ partial class MinionSetUpSystem : SystemBase
             }
             else
             {
-                var ecb = new EntityCommandBuffer(Allocator.TempJob);
+                var ecb = SystemAPI.GetSingleton<BeginInitializationEntityCommandBufferSystem.Singleton>()
+                .CreateCommandBuffer(EntityManager.WorldUnmanaged);
+                //new EntityCommandBuffer(Allocator.TempJob);
 
                 var partsList = new NativeList<Entity>(Allocator.Temp);
                 {
@@ -240,8 +242,8 @@ partial class MinionSetUpSystem : SystemBase
                     aspect.DisableCounter = -1;
                 }//매 프레임 마다 하면 성능에 지장이 있지만 편해서
 
-                ecb.Playback(EntityManager);
-                ecb.Dispose();
+                //ecb.Playback(EntityManager);
+                //ecb.Dispose();
             }
 
             minions.Dispose();
