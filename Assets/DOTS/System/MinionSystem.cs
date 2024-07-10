@@ -72,7 +72,11 @@ public partial class MinionSystem : SystemBase
                 animations = AnimationDataParall.AsReadOnly(),
                 originTransform = MinionTransformParall.AsReadOnly(),
                 ClipDatas = clipData,
-                ClipDataInterval = MinionAnimationDB.ClipDataInterval
+                ClipDataInterval = MinionAnimationDB.ClipDataInterval,
+
+                CameraPos = Camera.main.transform.position,
+                CameraRot = Camera.main.transform.rotation,
+                HorizonFov = Camera.VerticalToHorizontalFieldOfView(Camera.main.fieldOfView, Camera.main.aspect),
             }.ScheduleParallel(PartsQuery, setupHandle);
             //=============== 크기조절 에 따른 위치 변경이 없음 
 
@@ -86,7 +90,11 @@ public partial class MinionSystem : SystemBase
 
                 seperate = seperateData,
                 PartsTransform = PartsTransform,
-                delta = SystemAPI.Time.DeltaTime
+                delta = SystemAPI.Time.DeltaTime,
+
+                CameraPos = Camera.main.transform.position,
+                CameraRot = Camera.main.transform.rotation,
+                HorizonFov = Camera.VerticalToHorizontalFieldOfView(Camera.main.fieldOfView, Camera.main.aspect),
             }.ScheduleParallel(PartsQuery, animHandle).Complete();
 
             MinionsParall.Dispose();
@@ -127,6 +135,10 @@ public partial class MinionSystem : SystemBase
 
         [ReadOnly] public float ClipDataInterval;
 
+        [ReadOnly] public float3 CameraPos;
+        [ReadOnly] public quaternion CameraRot;
+        [ReadOnly] public float HorizonFov;
+
         public void Execute(Entity e, [EntityIndexInQuery] int index, in MinionPartIndex partIndex, in MinionPartParent parent,
             ref LocalTransform transform)
         {
@@ -153,9 +165,11 @@ public partial class MinionSystem : SystemBase
                     }
                 }// is Correct ClipIndex
 
-
                 var localTrans = clipData.assetReference.Value.parts[partIndex.Index]
                     .frames[Mathf.FloorToInt(anim.PlayTime / ClipDataInterval)];
+
+                if (IsVisiable(worldTrans.Position + localTrans.Position, 0) == false)
+                    return;
 
                 var rot = math.mul(worldTrans.Rotation, localTrans.Rotation);
                 rot = math.mul(rot, clipData.assetReference.Value.parts[partIndex.Index].OffsetTransform.Rotation);               
@@ -166,7 +180,17 @@ public partial class MinionSystem : SystemBase
             }
         }
 
-    }
+        public bool IsVisiable(float3 Target , float offset)
+        {
+            var dot = Quaternion.Dot(CameraRot, Quaternion.LookRotation(math.normalize(Target - CameraPos)));
+            dot = Mathf.Acos(dot);
+            dot = dot > 0 ? dot : -dot;
+            dot *= Mathf.Rad2Deg;
+
+            return dot <= HorizonFov * 0.5f + offset;
+        }
+
+    }//화면 밖에 나가면 위치 변경 X
 
     public partial struct UpdateSeperteTrasform : IJobEntity
     {
@@ -177,6 +201,10 @@ public partial class MinionSystem : SystemBase
         [ReadOnly] public SeparatePartComponent seperate;
         [ReadOnly] public NativeArray<LocalTransform> PartsTransform;
         public float delta;
+
+        [ReadOnly] public float3 CameraPos;
+        [ReadOnly] public quaternion CameraRot;
+        [ReadOnly] public float HorizonFov;
 
         public void Execute(Entity entity, [EntityIndexInQuery] int index, in MinionPartIndex partIndex, in MinionPartParent parent,
             ref LocalTransform transform)
@@ -192,27 +220,52 @@ public partial class MinionSystem : SystemBase
                     ecb.SetEnabled(index, entity, false);
                     return;
                 }
-
-                if (minion.DisableCounter >= 0 && minion.DisableCounter < seperate.SeparateTime + seperate.FalloffTime)
+                if (minion.DisableCounter >= 0)
                 {
-                    var offset = math.normalize(PartsTransform[index].Position - origin.Position);
-                    var impactOffset = math.normalize(PartsTransform[index].Position - minion.ImpactLocation);
-
-                    transform.Position = PartsTransform[index].Position
-                        + math.normalize(offset + impactOffset) * (seperate.Speed * delta)
-                        + seperate.Gravity * delta;
-                    // 가상의 바닥 적용할려면 속도값 필요
-
-                    if (seperate.SeparateTime <= minion.DisableCounter)
+                    if (PartsTransform[index].Position.y - origin.Position.y <= -seperate.DisableHeightUnderOrigin)
                     {
-                        transform.Scale = 1 - ((minion.DisableCounter - seperate.SeparateTime) / seperate.FalloffTime);
-                    }//FallOff - 크기 감소
+                        ecb.SetEnabled(index, entity, false);
+                        return;
+                    }
+
+                    if (IsVisiable(PartsTransform[index].Position, 0) == false)
+                    {
+                        ecb.SetEnabled(index, entity, false);
+                        return;
+                    }
+
+                    if (minion.DisableCounter < seperate.SeparateTime + seperate.FalloffTime)
+                    {
+                        var offset = math.normalize(PartsTransform[index].Position - origin.Position);
+                        var impactOffset = math.normalize(PartsTransform[index].Position - minion.ImpactLocation);
+
+                        transform.Position = PartsTransform[index].Position
+                            + math.normalize(offset + impactOffset) * (seperate.Speed * delta)
+                            + seperate.Gravity * delta;
+                        // 가상의 바닥 적용할려면 속도값 필요
+
+                        if (seperate.SeparateTime <= minion.DisableCounter)
+                        {
+                            transform.Scale = 1 - ((minion.DisableCounter - seperate.SeparateTime) / seperate.FalloffTime);
+                        }//FallOff - 크기 감소
+                    }
+                    else if (minion.DisableCounter >= seperate.SeparateTime + seperate.FalloffTime)
+                    {
+                        ecb.SetEnabled(index, entity, false);
+                    }//수명 다함
                 }
-                else if (minion.DisableCounter >= seperate.SeparateTime + seperate.FalloffTime)
-                {
-                    ecb.SetEnabled(index, entity, false);
-                }//수명 다함
+
             }
+        }
+
+        public bool IsVisiable(float3 Target, float offset)
+        {
+            var dot = Quaternion.Dot(CameraRot, Quaternion.LookRotation(math.normalize(Target - CameraPos)));
+            dot = Mathf.Acos(dot);
+            dot = dot > 0 ? dot : -dot;
+            dot *= Mathf.Rad2Deg;
+
+            return dot <= HorizonFov * 0.5f + offset;
         }
     }
 }

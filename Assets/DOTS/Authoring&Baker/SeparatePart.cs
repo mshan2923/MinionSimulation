@@ -10,6 +10,7 @@ class SeparatePart : MonoBehaviour
     public float FalloffTime = 1f;
     public float3 Gravity = new float3(0, -9.8f, 0);
 
+    [Min(0)]public float DisableHeightUnderOrigin = -5f;
 }
 
 class SeparatePartBaker : Baker<SeparatePart>
@@ -24,6 +25,7 @@ class SeparatePartBaker : Baker<SeparatePart>
                 SeparateTime = authoring.SeparateTime,
                 FalloffTime =   authoring.FalloffTime,
                 Gravity = authoring.Gravity,
+                DisableHeightUnderOrigin = authoring.DisableHeightUnderOrigin,
             });
     }
 }

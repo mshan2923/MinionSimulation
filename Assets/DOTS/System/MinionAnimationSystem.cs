@@ -8,6 +8,7 @@ using Unity.Burst;
 using UnityEditor.Experimental.GraphView;
 using System.Linq;
 using static MinionAnimationDB;
+using Unity.Mathematics;
 
 [UpdateAfter(typeof(MinionSetUpSystem))]
 public partial class MinionAnimationSystem : SystemBase
@@ -69,12 +70,14 @@ public partial class MinionAnimationSystem : SystemBase
         var clipDataQuery = GetEntityQuery(typeof(MinionClipData));
         var clipData = clipDataQuery.ToComponentDataArray<MinionClipData>(Allocator.TempJob);
 
+
+
         var updateHandle = new UpdateAnimation()
         {
             animations = Animations,
             clipDatas = clipData,
             delta = SystemAPI.Time.DeltaTime,
-        }.ScheduleParallel(AnimQuery, Dependency);
+        }.ScheduleParallel(AnimQuery, Dependency);//데이터 수정만 , 위치 변경은 MinionSystem에서
 
         var seperateData = SystemAPI.GetSingleton<SeparatePartComponent>();
         new SeperateParts()

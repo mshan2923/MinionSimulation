@@ -146,110 +146,81 @@ partial class MinionSetUpSystem : SystemBase
 
         MinionEntity.Dispose();
         aspects.Dispose();
+
+        ToggleAllMinions();
     }
     protected override void OnUpdate()
     {
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            //========= 변경 -> Part가 Query에 한개라도 있으면 전부 폭파 , 없으면 복구
-
-            var minions = Entities.WithAll<MinionData>().ToQuery().ToEntityArray(Allocator.TempJob);
-
-            {
-                /*
-                var partsList = new NativeList<Entity>(Allocator.Temp);
-                {
-                    foreach (var e in minions)
-                    {
-                        var aspect = SystemAPI.GetAspect<MinionAspect>(e);
-                        var buffer = aspect.minionParts.ToNativeArray(Allocator.Temp);
-
-                        var bufferArray = buffer.Select(t => t.Part).ToArray();
-
-                        var bufferNative = new NativeArray<Entity>(bufferArray, Allocator.Temp);
-                        partsList.AddRange(bufferNative);
-                        bufferNative.Dispose();
-                        buffer.Dispose();
-                    }
-                }//Get All MinionPart - Disable Entity Can't find in Query
-                var partArray = partsList.ToArray(Allocator.TempJob);
-
-                var toggleHandle = new MinionAspect.ToggleJob()
-                {
-                    ecb = ecb.AsParallelWriter(),
-                    spawnedEntity = partArray,
-                    value = !isToggle
-                }.Schedule(partsList.Length, 32, Dependency);
-                toggleHandle.Complete();
-                isToggle = !isToggle;
-
-                partsList.Dispose();
-                partArray.Dispose(toggleHandle);
-                */
-            }//Disabled
-
-            var Parts = GetEntityQuery(typeof(MinionPartIndex));
-            var partArray = Parts.ToEntityArray(Allocator.TempJob);
-
-            if (Parts.CalculateEntityCount() > 0)// true -> 분리 시작 , false -> 비활성화된 부위 활성화
-            {
-                foreach (var e in minions)
-                {
-                    var aspect = SystemAPI.GetAspect<MinionAspect>(e);
-                    aspect.DisableCounter = 0;
-
-                    Unity.Mathematics.Random random = new((uint)(aspect.entity.Index + SystemAPI.Time.DeltaTime * 1000));
-                    float3 offst = random.NextFloat3();
-                    aspect.minionData.ValueRW.ImpactLocation = aspect.tranform.ValueRO.Position + offst;
-                }//매 프레임 마다 하면 성능에 지장이 있지만 편해서
-            }
-            else
-            {
-                var ecb = SystemAPI.GetSingleton<BeginInitializationEntityCommandBufferSystem.Singleton>()
-                .CreateCommandBuffer(EntityManager.WorldUnmanaged);
-                //new EntityCommandBuffer(Allocator.TempJob);
-
-                var partsList = new NativeList<Entity>(Allocator.Temp);
-                {
-                    foreach (var e in minions)
-                    {
-                        var aspect = SystemAPI.GetAspect<MinionAspect>(e);
-                        var buffer = aspect.minionParts.ToNativeArray(Allocator.Temp);
-
-                        var bufferArray = buffer.Select(t => t.Part).ToArray();
-
-                        var bufferNative = new NativeArray<Entity>(bufferArray, Allocator.Temp);
-                        partsList.AddRange(bufferNative);
-                        bufferNative.Dispose();
-                        buffer.Dispose();
-                    }
-                }//Get All MinionPart - Disable Entity Can't find in Query
-                var parts = partsList.ToArray(Allocator.TempJob);
-
-
-                var toggleHandle = new MinionAspect.ToggleJob()
-                {
-                    ecb = ecb.AsParallelWriter(),
-                    spawnedEntity = parts,
-                    value = true
-                }.Schedule(parts.Length, 32, Dependency);
-                toggleHandle.Complete();
-
-                foreach (var e in minions)
-                {
-                    var aspect = SystemAPI.GetAspect<MinionAspect>(e);
-                    aspect.IsEnablePart = true;
-                    aspect.DisableCounter = -1;
-                }//매 프레임 마다 하면 성능에 지장이 있지만 편해서
-
-                //ecb.Playback(EntityManager);
-                //ecb.Dispose();
-            }
-
-            minions.Dispose();
+            ToggleAllMinions();
         }//Toggle All Minions - Mouse Right Button
     }
 
+    public void ToggleAllMinions()
+    {
+        var minions = Entities.WithAll<MinionData>().ToQuery().ToEntityArray(Allocator.TempJob);
+
+        var Parts = GetEntityQuery(typeof(MinionPartIndex));
+        var partArray = Parts.ToEntityArray(Allocator.TempJob);
+
+        if (Parts.CalculateEntityCount() > 0)// true -> 분리 시작 , false -> 비활성화된 부위 활성화
+        {
+            foreach (var e in minions)
+            {
+                var aspect = SystemAPI.GetAspect<MinionAspect>(e);
+                aspect.DisableCounter = 0;
+
+                Unity.Mathematics.Random random = new((uint)(aspect.entity.Index + SystemAPI.Time.DeltaTime * 1000));
+                float3 offst = random.NextFloat3();
+                aspect.minionData.ValueRW.ImpactLocation = aspect.tranform.ValueRO.Position + offst;
+            }//매 프레임 마다 하면 성능에 지장이 있지만 편해서
+        }
+        else
+        {
+            var ecb = SystemAPI.GetSingleton<BeginInitializationEntityCommandBufferSystem.Singleton>()
+            .CreateCommandBuffer(EntityManager.WorldUnmanaged);
+            //new EntityCommandBuffer(Allocator.TempJob);
+
+            var partsList = new NativeList<Entity>(Allocator.Temp);
+            {
+                foreach (var e in minions)
+                {
+                    var aspect = SystemAPI.GetAspect<MinionAspect>(e);
+                    var buffer = aspect.minionParts.ToNativeArray(Allocator.Temp);
+
+                    var bufferArray = buffer.Select(t => t.Part).ToArray();
+
+                    var bufferNative = new NativeArray<Entity>(bufferArray, Allocator.Temp);
+                    partsList.AddRange(bufferNative);
+                    bufferNative.Dispose();
+                    buffer.Dispose();
+                }
+            }//Get All MinionPart - Disable Entity Can't find in Query
+            var parts = partsList.ToArray(Allocator.TempJob);
+
+
+            var toggleHandle = new MinionAspect.ToggleJob()
+            {
+                ecb = ecb.AsParallelWriter(),
+                spawnedEntity = parts,
+                value = true
+            }.Schedule(parts.Length, 32, Dependency);
+            toggleHandle.Complete();
+
+            foreach (var e in minions)
+            {
+                var aspect = SystemAPI.GetAspect<MinionAspect>(e);
+                aspect.IsEnablePart = true;
+                aspect.DisableCounter = -1;
+            }//매 프레임 마다 하면 성능에 지장이 있지만 편해서
+
+            //ecb.Playback(EntityManager);
+            //ecb.Dispose();
+        }
+
+        minions.Dispose();
+    }
     public partial struct FillJob<T>: IJobParallelFor where T : struct
     {
         public NativeArray<T> partsList;

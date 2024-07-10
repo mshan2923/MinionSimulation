@@ -8,4 +8,5 @@ public struct SeparatePartComponent : IComponentData
     public float SeparateTime;
     public float FalloffTime;
     public float3 Gravity;
+    public float DisableHeightUnderOrigin;
 }

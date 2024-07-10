@@ -151,7 +151,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 510545b40c610f549a65149b682fffa6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Amount: 5000
+  Amount: 1000
   Between: 1.2
   Is3D: 0
   Target: {fileID: 2383167327171552641, guid: 776b30448712444448ac2d371a7e9d57, type: 3}
@@ -387,7 +387,12 @@ PrefabInstance:
     - target: {fileID: 8802429257181605214, guid: e0ce229c2a20ae7479f905832aefb326,
         type: 3}
       propertyPath: Speed
-      value: 20
+      value: 30
+      objectReference: {fileID: 0}
+    - target: {fileID: 8802429257181605214, guid: e0ce229c2a20ae7479f905832aefb326,
+        type: 3}
+      propertyPath: DisableHeightUnderOrigin
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
