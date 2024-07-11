@@ -77,6 +77,11 @@ public class MinionImportTesterEditor : Editor
 
         EditorGUILayout.Slider(serializedObject.FindProperty("Time"), 0, MinionAnimationDB.Instance.GetClipLength(onwer.ClipIndex));
 
+        if (serializedObject.FindProperty("Time").floatValue > MinionAnimationDB.Instance.GetClipLength(onwer.ClipIndex))
+        {
+            serializedObject.FindProperty("Time").floatValue = 0;
+        }//ClipIndex°¡ ¹Ù²î¾î ÃÖ´ñ°ªÀÌ ¹Ù²ð¶§ 
+
         if (GUILayout.Button("Initial"))
         {
             onwer.Spawn();

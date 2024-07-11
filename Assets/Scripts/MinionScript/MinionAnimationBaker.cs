@@ -34,6 +34,12 @@ public class MinionAnimationBaker : MonoBehaviour
         db = MinionAnimationDB.Instance;
         var clipData = db.animationClips[ClipIndex];
 
+        if (clipData.OriginAvatar != BakeCharacter.avatar)
+        {
+            Debug.LogError("Not Equal Avatar");
+            return;
+        }
+
         if (BakeCharacter == null)
             return;
         BakeCharacter.transform.rotation = Quaternion.identity;
@@ -181,9 +187,11 @@ public class MinionAnimationBakerEditor : Editor
                 db.animationClips[onwer.DebugClipIndex].Clip.SampleAnimation(onwer.BakeCharacter.gameObject, playTime);
 
                 var skel = db.animationClips[onwer.DebugClipIndex].GetSkeletons;
+                EditorGUILayout.LabelField($"Skeletons : {skel.Length} / Clip : {db.animationClips[onwer.DebugClipIndex].Clip.name}");
             }
         }
 
+        serializedObject.ApplyModifiedProperties();
     }
 }
 #endif

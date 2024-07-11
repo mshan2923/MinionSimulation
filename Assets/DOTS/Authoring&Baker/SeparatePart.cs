@@ -18,7 +18,7 @@ class SeparatePartBaker : Baker<SeparatePart>
     public override void Bake(SeparatePart authoring)
     {
         AddComponent(GetEntity(authoring.gameObject, TransformUsageFlags.None),
-            new SeparatePartComponent
+            new SeparationPartComponent
             {
                 Speed = authoring.Speed,
                 SpeedOffset = authoring.SpeedOffset,

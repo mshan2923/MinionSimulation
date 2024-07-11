@@ -21,8 +21,10 @@ public partial class MinionSystem : SystemBase
     {
         base.OnStartRunning();
         Minions = GetEntityQuery(typeof(MinionData));
-        var MinionEntities = Minions.ToEntityArray(Allocator.TempJob);
+        /*
+         var MinionEntities = Minions.ToEntityArray(Allocator.TempJob);
 
+        
         foreach(var e in MinionEntities)
         {
             var aspect = SystemAPI.GetAspect<MinionAspect>(e);
@@ -30,6 +32,7 @@ public partial class MinionSystem : SystemBase
         }
 
         MinionEntities.Dispose();
+        */
     }
     protected override void OnUpdate()
     {
@@ -80,7 +83,7 @@ public partial class MinionSystem : SystemBase
             }.ScheduleParallel(PartsQuery, setupHandle);
             //=============== 크기조절 에 따른 위치 변경이 없음 
 
-            var seperateData = SystemAPI.GetSingleton<SeparatePartComponent>();
+            var seperateData = SystemAPI.GetSingleton<SeparationPartComponent>();
 
             new UpdateSeperteTrasform()
             {
@@ -198,7 +201,7 @@ public partial class MinionSystem : SystemBase
         [ReadOnly] public NativeParallelHashMap<Entity, MinionData>.ReadOnly minions;
         [ReadOnly] public NativeParallelHashMap<Entity, LocalTransform>.ReadOnly originTransform;
 
-        [ReadOnly] public SeparatePartComponent seperate;
+        [ReadOnly] public SeparationPartComponent seperate;
         [ReadOnly] public NativeArray<LocalTransform> PartsTransform;
         public float delta;
 

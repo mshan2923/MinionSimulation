@@ -187,3 +187,15 @@ public class MinionAnimationDB : ScriptableObject
         return SpawnObjDBs[ClipIndex].SpawnParts.GetVaule(BoneIndex).offset.transform;
     }
 }
+
+[CustomEditor(typeof(MinionAnimationDB))]
+public class MinionAnimDBEditor : Editor
+{
+    public override void OnInspectorGUI()
+    {
+        string value = "Must Equal Clip And OriginAvatar \n" +
+            "Not work  Avatar Definition : 'Copy form Other Avatar'";
+        EditorGUILayout.HelpBox(value, MessageType.Warning, true);
+        base.OnInspectorGUI();
+    }
+}

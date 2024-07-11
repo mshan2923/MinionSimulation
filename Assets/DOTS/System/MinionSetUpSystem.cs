@@ -142,7 +142,7 @@ partial class MinionSetUpSystem : SystemBase
             ecb.Dispose();
             fillted.Dispose();
             spawned.Dispose(toggleHandle);
-        }//Toggle
+        }//Toggle  -- 없애도 되지 않을까?
 
         MinionEntity.Dispose();
         aspects.Dispose();

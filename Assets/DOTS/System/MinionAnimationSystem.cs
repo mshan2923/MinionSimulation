@@ -79,7 +79,7 @@ public partial class MinionAnimationSystem : SystemBase
             delta = SystemAPI.Time.DeltaTime,
         }.ScheduleParallel(AnimQuery, Dependency);//데이터 수정만 , 위치 변경은 MinionSystem에서
 
-        var seperateData = SystemAPI.GetSingleton<SeparatePartComponent>();
+        var seperateData = SystemAPI.GetSingleton<SeparationPartComponent>();
         new SeperateParts()
         {
             datas = Minions,
@@ -142,7 +142,7 @@ public partial class MinionAnimationSystem : SystemBase
     {
         public NativeArray<MinionData> datas;
         public float Delta;
-        public SeparatePartComponent separateData;
+        public SeparationPartComponent separateData;
 
         public void Execute([EntityIndexInQuery] int index, ref MinionData minion)
         {
