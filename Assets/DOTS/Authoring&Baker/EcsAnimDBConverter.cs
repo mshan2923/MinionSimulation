@@ -57,6 +57,8 @@ class EcsAnimDBConverterBaker : Baker<EcsAnimDBConverter>
             {
                 clipIndex = c,
                 ClipLength = db.GetClipLength(c),
+                IsLooping = db.animationClips[c].isLooping,
+                Cancellable = db.animationClips[c].Cancellable,
                 assetReference = clipRef
                 //MinionAnimationSystem이 제거될때  메모리 할당 해제 
             });

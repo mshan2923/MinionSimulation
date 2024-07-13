@@ -1,6 +1,7 @@
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using UnityEngine;
 
 public struct MinionClipEntities : IComponentData
 {
@@ -15,6 +16,10 @@ public struct MinionClipData : IComponentData
 {
     public int clipIndex;
     public float ClipLength;
+    [Tooltip("에니메이션 종료시 자동 반복 재생")]
+    public bool IsLooping;
+    [Tooltip("에니메이션 재생 취소 여부")]
+    public bool Cancellable;
     public BlobAssetReference<MinionClipPartData> assetReference;
 
 }

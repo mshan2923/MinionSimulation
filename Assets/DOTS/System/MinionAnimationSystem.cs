@@ -70,8 +70,6 @@ public partial class MinionAnimationSystem : SystemBase
         var clipDataQuery = GetEntityQuery(typeof(MinionClipData));
         var clipData = clipDataQuery.ToComponentDataArray<MinionClipData>(Allocator.TempJob);
 
-
-
         var updateHandle = new UpdateAnimation()
         {
             animations = Animations,
@@ -127,13 +125,40 @@ public partial class MinionAnimationSystem : SystemBase
                 if (minionData.DisableCounter >= 0)
                     return;
 
-                if (animations[index].PlayTime + delta < clipData.ClipLength)
+                if (animations[index].ReserveAnimatiom >= 0 &&
+                    (clipDatas[animations[index].CurrectAnimation].Cancellable || animations[index].ForceCancle))
+                {
+                    animation.PreviousAnimation = animations[index].CurrectAnimation;
+                    animation.StopedTime = animations[index].PlayTime;
+                    animation.CurrectAnimation = animations[index].ReserveAnimatiom;
+                    animation.PlayTime = 0;
+                    animation.ReserveAnimatiom = -1;
+                    animation.ForceCancle = false;
+
+                    return;
+                }//에니메이션 캔슬
+
+                float Ltime = animations[index].PlayTime + delta;
+                if (Ltime < clipData.ClipLength)
                 {
                     animation.PlayTime = animations[index].PlayTime + delta;
                 }
                 else
                 {
-                    animation.PlayTime = 0;                    
+                    if (!clipData.IsLooping)
+                    {
+                        animation.CurrectAnimation = -1;
+                    }
+                    if (animations[index].ReserveAnimatiom >= 0)
+                    {
+                        animation.CurrectAnimation = animations[index].ReserveAnimatiom;
+                    }
+
+                    animation.PreviousAnimation = animations[index].CurrectAnimation;
+                    animation.ReserveAnimatiom = -1;
+                    animation.StopedTime = animations[index].PlayTime + delta;
+                    animation.PlayTime = 0;
+                    animation.ForceCancle = false;
                 }
             }
         }

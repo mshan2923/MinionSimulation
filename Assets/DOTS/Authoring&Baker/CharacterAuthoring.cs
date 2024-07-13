@@ -62,7 +62,8 @@ class CharacterAuthoringBaker : Baker<CharacterAuthoring>
                         PreviousAnimation = -1,
                         StopedTime = 0,
                         CurrectAnimation = authoring.DefaultAnimation,
-                        PlayTime = 0
+                        PlayTime = 0,
+                        ReserveAnimatiom = -1
                     }
                 );
         }

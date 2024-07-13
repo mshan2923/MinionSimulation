@@ -39,6 +39,10 @@ public class MinionAnimationDB : ScriptableObject
     {
         public AnimationClip Clip;
         public Avatar OriginAvatar;
+        [Tooltip("에니메이션 종료시 자동 반복 재생")]
+        public bool isLooping;
+        [Tooltip("에니메이션 재생 취소 여부")]
+        public bool Cancellable;
 
         public SkeletonBone[] GetSkeletons
         {

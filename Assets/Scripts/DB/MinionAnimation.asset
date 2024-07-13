@@ -15,8 +15,12 @@ MonoBehaviour:
   animationClips:
   - Clip: {fileID: -623603649343465320, guid: 8f0b3b356d6467449a0f1f23c6a20bb0, type: 3}
     OriginAvatar: {fileID: 9000000, guid: 8f0b3b356d6467449a0f1f23c6a20bb0, type: 3}
+    isLooping: 1
+    Cancellable: 0
   - Clip: {fileID: 723096430288179899, guid: 8f0b3b356d6467449a0f1f23c6a20bb0, type: 3}
     OriginAvatar: {fileID: 9000000, guid: 8f0b3b356d6467449a0f1f23c6a20bb0, type: 3}
+    isLooping: 1
+    Cancellable: 1
   PartCurves:
   - Curve:
     - position:

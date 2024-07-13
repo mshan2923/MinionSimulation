@@ -168,8 +168,73 @@ public partial class MinionSystem : SystemBase
                     }
                 }// is Correct ClipIndex
 
-                var localTrans = clipData.assetReference.Value.parts[partIndex.Index]
-                    .frames[Mathf.FloorToInt(anim.PlayTime / ClipDataInterval)];
+
+                LocalTransform localTrans = LocalTransform.Identity;
+                {
+                    localTrans = clipData.assetReference.Value.parts[partIndex.Index]
+                        .frames[Mathf.FloorToInt(anim.PlayTime / ClipDataInterval)];
+                    float clampLength = 0.2f;
+
+                    if (anim.ReserveAnimatiom >= 0)
+                    {
+                        if (clipData.Cancellable == false)
+                        {
+                            var startLerp = clipData.ClipLength - clampLength;
+
+                            if (anim.PlayTime > startLerp)
+                            {
+                                var lerpRate = (anim.PlayTime - startLerp) / clampLength;
+                                var reserveTrans = ClipDatas[anim.ReserveAnimatiom].assetReference.Value.parts[partIndex.Index]
+                                    .frames[Mathf.FloorToInt((anim.PlayTime - startLerp) / ClipDataInterval)];
+
+                                localTrans = new LocalTransform
+                                {
+                                    Position = Vector3.Lerp(localTrans.Position, reserveTrans.Position, lerpRate),
+                                    Rotation = Quaternion.Lerp(localTrans.Rotation, reserveTrans.Rotation, lerpRate),
+                                    Scale = Mathf.Lerp(localTrans.Scale, reserveTrans.Scale, lerpRate)
+                                };
+                            }
+                        }
+                    }//Not Cancellable Transforming
+
+                    if (anim.PreviousAnimation >= 0)
+                    {
+                        if (ClipDatas[anim.PreviousAnimation].ClipLength - anim.StopedTime > ClipDataInterval
+                            && ClipDatas[anim.PreviousAnimation].Cancellable == false)
+                        {
+                            var previous = ClipDatas[anim.PreviousAnimation];
+                            var previousTrans = previous.assetReference.Value.parts[partIndex.Index]
+                                        .frames[Mathf.FloorToInt(anim.StopedTime / ClipDataInterval)];
+                            var lerpRate = anim.PlayTime / clampLength;
+
+                            localTrans = new LocalTransform
+                            {
+                                Position = Vector3.Lerp(previousTrans.Position, localTrans.Position, lerpRate),
+                                Rotation = Quaternion.Lerp(previousTrans.Rotation, localTrans.Rotation, lerpRate),
+                                Scale = Mathf.Lerp(previousTrans.Scale, localTrans.Scale, lerpRate)
+                            };
+                        }//if ForceCancle To Not Cancellable Transforming
+
+                        if (anim.PlayTime < clampLength && ClipDatas[anim.PreviousAnimation].Cancellable)
+                        {
+                            var previous = ClipDatas[anim.PreviousAnimation];
+                            var previousTrans = previous.assetReference.Value.parts[partIndex.Index]
+                                        .frames[Mathf.FloorToInt((anim.PlayTime / previous.ClipLength) * ClipDataInterval)];
+                            var lerpRate = anim.PlayTime / clampLength;
+
+                            localTrans = new LocalTransform
+                            {
+                                Position = Vector3.Lerp(previousTrans.Position, localTrans.Position, lerpRate),
+                                Rotation = Quaternion.Lerp(previousTrans.Rotation, localTrans.Rotation, lerpRate),
+                                Scale = Mathf.Lerp(previousTrans.Scale, localTrans.Scale, lerpRate)
+                            };
+                        }//Cancellable Transforming
+                    }
+                }//Calculate Transforming Animation
+                 //     취소 가능 => 바로 전환 되므로 이전 정보랑 Lerp
+                 //     취소 불가 => 끝나기 전에 Lerp (현)
+
+
 
                 if (IsVisiable(worldTrans.Position + localTrans.Position, 0) == false)
                     return;
@@ -192,6 +257,22 @@ public partial class MinionSystem : SystemBase
 
             return dot <= HorizonFov * 0.5f + offset;
         }
+
+        LocalTransform CancellableTransforming(MinionAnimation anim , MinionPartIndex partIndex, float clampLength, LocalTransform localTrans)
+        {
+            var previous = ClipDatas[anim.PreviousAnimation];
+            var previousTrans = previous.assetReference.Value.parts[partIndex.Index]
+                        .frames[Mathf.FloorToInt((anim.PlayTime / previous.ClipLength) * ClipDataInterval)];
+            var lerpRate = anim.PlayTime / clampLength;
+
+            return new LocalTransform
+            {
+                Position = Vector3.Lerp(previousTrans.Position, localTrans.Position, lerpRate),
+                Rotation = Quaternion.Lerp(previousTrans.Rotation, localTrans.Rotation, lerpRate),
+                Scale = Mathf.Lerp(previousTrans.Scale, localTrans.Scale, lerpRate)
+            };
+        }
+
 
     }//화면 밖에 나가면 위치 변경 X
 
