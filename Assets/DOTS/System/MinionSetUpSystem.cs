@@ -51,6 +51,14 @@ partial class MinionSetUpSystem : SystemBase
         base.OnStartRunning();
 
         var MinionQuery = GetEntityQuery(typeof(MinionData));
+
+        if (MinionQuery.CalculateEntityCount() <= 0)
+        {
+            Debug.LogWarning("Can't find MinionData");
+            Enabled = false;
+            return;
+        }
+
         var MinionEntity = MinionQuery.ToEntityArray(Allocator.TempJob);
 
         var aspects = new NativeArray<MinionAspect>(MinionEntity.Length, Allocator.TempJob);
@@ -151,6 +159,9 @@ partial class MinionSetUpSystem : SystemBase
     }
     protected override void OnUpdate()
     {
+        if (Enabled == false)//비활성화 되도 실행
+            return;
+
         if (Input.GetKeyDown(KeyCode.Space))
         {
             ToggleAllMinions();

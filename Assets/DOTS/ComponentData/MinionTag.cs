@@ -22,6 +22,14 @@ public struct MinionData : IComponentData
 
     public float DisableCounter;
     public float3 ImpactLocation;
+
+    /// <summary>
+    /// 미니언이 스폰되어 파괴되지 않은 조작 가능한 상태
+    /// </summary>
+    public bool IsActive
+    {
+        get => isSpawnedPart && isEnablePart && DisableCounter < 0;
+    }
 }
 public struct MinionPart : IBufferElementData
 {

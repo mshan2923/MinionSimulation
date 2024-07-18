@@ -35,14 +35,19 @@ public class MinionAnimationDB : ScriptableObject
 
 
     [Serializable]
-    public struct ClipData
+    public class ClipData
     {
         public AnimationClip Clip;
         public Avatar OriginAvatar;
         [Tooltip("에니메이션 종료시 자동 반복 재생")]
         public bool isLooping;
-        [Tooltip("에니메이션 재생 취소 여부")]
+        [Tooltip("에니메이션 재생중 전환 가능 여부")]
         public bool Cancellable;
+
+        [Tooltip("에니메이션 전환시 보간 시간")]
+        public float interpolationTime = 0.2f;
+        [Tooltip("에니메이션 강제 전환시 보간 시간")]
+        public float forceInterpolationTime = 0.3f;
 
         public SkeletonBone[] GetSkeletons
         {
@@ -62,6 +67,7 @@ public class MinionAnimationDB : ScriptableObject
         }
     }
 
+    [NonReorderable]
     public ClipData[] animationClips;
 
     [SerializeField] private ClipCurve[] PartCurves;

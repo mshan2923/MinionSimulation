@@ -11,6 +11,7 @@ using Unity.Transforms;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using static MinionAnimationDB;
+using static UnityEngine.GraphicsBuffer;
 
 [UpdateAfter(typeof(MinionSetUpSystem))]
 public partial class MinionSystem : SystemBase
@@ -33,9 +34,19 @@ public partial class MinionSystem : SystemBase
 
         MinionEntities.Dispose();
         */
+
+        if (Minions.CalculateEntityCount() <= 0)
+        {
+            Debug.LogWarning("Can't find MinionData");
+            Enabled = false;
+            return;
+        }
     }
     protected override void OnUpdate()
     {
+        if (Enabled == false)//비활성화 되도 실행
+            return;
+
         {
             var MinionEntities = Minions.ToEntityArray(Allocator.TempJob);
             var MinionDatas = Minions.ToComponentDataArray<MinionData>(Allocator.TempJob);
@@ -111,7 +122,7 @@ public partial class MinionSystem : SystemBase
         }
     }
 
-    [BurstCompile]
+    //[BurstCompile]
     public partial struct SetUpHashMap : IJobEntity
     {
         public NativeParallelHashMap<Entity, MinionData>.ParallelWriter MinionsParall;
@@ -122,14 +133,14 @@ public partial class MinionSystem : SystemBase
             MinionsParall.TryAdd(entity, minionData);
             MinionTransformParall.TryAdd(entity, transform);
 
-            if (minionData.isEnablePart && minionData.DisableCounter <= 0)
+            if (minionData.IsActive)
             {
                 AnimationDataParall.TryAdd(entity, animation);
             }
         }
     }
 
-    [BurstCompile]
+    //[BurstCompile]
     public partial struct UpdateMinionAnimation_Ref : IJobEntity
     {
         [ReadOnly] public NativeParallelHashMap<Entity, MinionAnimation>.ReadOnly animations;
@@ -147,8 +158,8 @@ public partial class MinionSystem : SystemBase
         {
             if (animations.TryGetValue(parent.parent, out var anim))
             {
-                originTransform.TryGetValue(parent.parent, out var worldTrans);
-                
+                var BoriginTrans = originTransform.TryGetValue(parent.parent, out var worldTrans);
+
                 MinionClipData clipData = default;
                 {
                     if (ClipDatas[anim.CurrectAnimation].clipIndex == anim.CurrectAnimation)
@@ -173,17 +184,17 @@ public partial class MinionSystem : SystemBase
                 {
                     localTrans = clipData.assetReference.Value.parts[partIndex.Index]
                         .frames[Mathf.FloorToInt(anim.PlayTime / ClipDataInterval)];
-                    float clampLength = 0.2f;
+                    //float clampLength = 0.2f;
 
                     if (anim.ReserveAnimatiom >= 0)
                     {
                         if (clipData.Cancellable == false)
                         {
-                            var startLerp = clipData.ClipLength - clampLength;
+                            var startLerp = clipData.ClipLength - clipData.interpolationTime;
 
                             if (anim.PlayTime > startLerp)
                             {
-                                var lerpRate = (anim.PlayTime - startLerp) / clampLength;
+                                var lerpRate = Mathf.Clamp01((anim.PlayTime - startLerp) / clipData.interpolationTime);
                                 var reserveTrans = ClipDatas[anim.ReserveAnimatiom].assetReference.Value.parts[partIndex.Index]
                                     .frames[Mathf.FloorToInt((anim.PlayTime - startLerp) / ClipDataInterval)];
 
@@ -205,7 +216,7 @@ public partial class MinionSystem : SystemBase
                             var previous = ClipDatas[anim.PreviousAnimation];
                             var previousTrans = previous.assetReference.Value.parts[partIndex.Index]
                                         .frames[Mathf.FloorToInt(anim.StopedTime / ClipDataInterval)];
-                            var lerpRate = anim.PlayTime / clampLength;
+                            var lerpRate = Mathf.Clamp01(anim.PlayTime / clipData.forceInterpolationTime);
 
                             localTrans = new LocalTransform
                             {
@@ -215,12 +226,12 @@ public partial class MinionSystem : SystemBase
                             };
                         }//if ForceCancle To Not Cancellable Transforming
 
-                        if (anim.PlayTime < clampLength && ClipDatas[anim.PreviousAnimation].Cancellable)
+                        if (anim.PlayTime < clipData.interpolationTime && ClipDatas[anim.PreviousAnimation].Cancellable)
                         {
                             var previous = ClipDatas[anim.PreviousAnimation];
                             var previousTrans = previous.assetReference.Value.parts[partIndex.Index]
                                         .frames[Mathf.FloorToInt((anim.PlayTime / previous.ClipLength) * ClipDataInterval)];
-                            var lerpRate = anim.PlayTime / clampLength;
+                            var lerpRate = Mathf.Clamp01(anim.PlayTime / clipData.interpolationTime);
 
                             localTrans = new LocalTransform
                             {
@@ -230,11 +241,13 @@ public partial class MinionSystem : SystemBase
                             };
                         }//Cancellable Transforming
                     }
-                }//Calculate Transforming Animation
+                }//Calculate Transforming Animation  
                  //     취소 가능 => 바로 전환 되므로 이전 정보랑 Lerp
                  //     취소 불가 => 끝나기 전에 Lerp (현)
 
+                //if (math.isfinite(temp).x)
 
+                localTrans.Position = math.mul(worldTrans.Rotation, localTrans.Position);
 
                 if (IsVisiable(worldTrans.Position + localTrans.Position, 0) == false)
                     return;
@@ -250,6 +263,11 @@ public partial class MinionSystem : SystemBase
 
         public bool IsVisiable(float3 Target , float offset)
         {
+            if (math.isfinite(Target).x == false)
+                return true;
+            if (math.distancesq(Target, CameraPos) < 0.01f)
+                return true;
+
             var dot = Quaternion.Dot(CameraRot, Quaternion.LookRotation(math.normalize(Target - CameraPos)));
             dot = Mathf.Acos(dot);
             dot = dot > 0 ? dot : -dot;

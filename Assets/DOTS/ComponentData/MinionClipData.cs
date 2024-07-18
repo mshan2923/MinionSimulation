@@ -20,6 +20,12 @@ public struct MinionClipData : IComponentData
     public bool IsLooping;
     [Tooltip("에니메이션 재생 취소 여부")]
     public bool Cancellable;
+
+    [Tooltip("에니메이션 전환시 보간 시간")]
+    public float interpolationTime;
+    [Tooltip("에니메이션 강제 전환시 보간 시간")]
+    public float forceInterpolationTime;
+
     public BlobAssetReference<MinionClipPartData> assetReference;
 
 }

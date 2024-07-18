@@ -64,6 +64,14 @@ public partial class MinionAnimationSystem : SystemBase
         }//Debug for Test
 
         var AnimQuery = GetEntityQuery(typeof(MinionAnimation), typeof(MinionData));
+
+        if (AnimQuery.CalculateEntityCount() <= 0)
+        {
+            Debug.LogWarning("Can't find MinionData");
+            Enabled = false;
+            return;
+        }
+
         var Animations = AnimQuery.ToComponentDataArray<MinionAnimation>(Allocator.TempJob);
         var Minions = AnimQuery.ToComponentDataArray<MinionData>(Allocator.TempJob);
 

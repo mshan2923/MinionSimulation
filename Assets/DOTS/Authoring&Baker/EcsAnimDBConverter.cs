@@ -59,6 +59,10 @@ class EcsAnimDBConverterBaker : Baker<EcsAnimDBConverter>
                 ClipLength = db.GetClipLength(c),
                 IsLooping = db.animationClips[c].isLooping,
                 Cancellable = db.animationClips[c].Cancellable,
+
+                interpolationTime = db.animationClips[c].interpolationTime,
+                forceInterpolationTime = db.animationClips[c].forceInterpolationTime,
+
                 assetReference = clipRef
                 //MinionAnimationSystem이 제거될때  메모리 할당 해제 
             });
