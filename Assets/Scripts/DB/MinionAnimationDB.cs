@@ -8,6 +8,7 @@ using System;
 using UnityEditor.Experimental.GraphView;
 using Unity.Mathematics;
 using Unity.Entities.UniversalDelegates;
+using System.Reflection;
 
 [CreateAssetMenu(fileName = "MinionAnimation", menuName = "DB/MinionAnimation")]
 public class MinionAnimationDB : ScriptableObject
@@ -198,6 +199,7 @@ public class MinionAnimationDB : ScriptableObject
     }
 }
 
+#if UNITY_EDITOR
 [CustomEditor(typeof(MinionAnimationDB))]
 public class MinionAnimDBEditor : Editor
 {
@@ -209,3 +211,42 @@ public class MinionAnimDBEditor : Editor
         base.OnInspectorGUI();
     }
 }
+
+[CustomPropertyDrawer(typeof(MinionAnimationDB.ClipData))]
+public class MinionAnimationClipEdtor : PropertyDrawer
+{
+    Rect DrawRect;
+    float FadeIn = 10f;
+
+    public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
+    {
+        return EditorGUIUtility.singleLineHeight * (property.isExpanded ? 7 : 1);
+    }
+    public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
+    {
+        DrawRect = new Rect(position.x, position.y, position.width, EditorGUIUtility.singleLineHeight);
+
+        var clip = property.FindPropertyRelative("Clip").objectReferenceValue;
+        property.isExpanded = EditorGUI.Foldout(DrawRect, property.isExpanded, clip == null? "": clip.name, true);
+
+        if (property.isExpanded)
+        {
+            var members = typeof(MinionAnimationDB.ClipData).GetMembers
+                (BindingFlags.Instance | BindingFlags.Public);
+
+            foreach ( var member in members )
+            {
+                if (member.MemberType == MemberTypes.Field)
+                {
+                    DrawRect = NextLine(position, DrawRect, FadeIn);
+                    EditorGUI.PropertyField(DrawRect, property.FindPropertyRelative(member.Name));
+                }
+            }
+        }
+    }
+    public Rect NextLine(Rect position, Rect drawRect, float FadeIn = 0)
+    {
+        return new Rect(position.x + FadeIn, drawRect.y + EditorGUIUtility.singleLineHeight, position.width - FadeIn, EditorGUIUtility.singleLineHeight);
+    }
+}
+#endif
