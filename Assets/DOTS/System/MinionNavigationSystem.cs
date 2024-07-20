@@ -155,8 +155,10 @@ public partial class MinionNavigationSystem : SystemBase
 
             if (Vector3.SqrMagnitude(pressureDir[index]) < 0.0001f)
             {
-                var lookTarget = Quaternion.LookRotation(math.normalize(Target - temp.Position));
-                temp.Position += math.normalize(Target - temp.Position) * MoveSpeed * DT;
+                var look2d = float3To2(Target - temp.Position, 0);
+
+                var lookTarget = Quaternion.LookRotation(math.normalize(look2d));
+                temp.Position += math.normalize(look2d) * MoveSpeed * DT;
                 temp.Rotation = Quaternion.Lerp(temp.Rotation, lookTarget, DT * RotationSpeed);
 
             }else if (Vector3.SqrMagnitude(pressureDir[index]) >= (MinionRadius * MinionRadius))
@@ -168,6 +170,10 @@ public partial class MinionNavigationSystem : SystemBase
             //Debug.Log($"Dir : {pressureDir[index]} , Target : {Target} \n pre Trans : {particleData[index]} , Added Trans : {temp}");
 
             pressureVel[index] = temp;
+        }
+        public float3 float3To2(float3 value , float y = 0)
+        {
+            return new float3(value.x, y, value.z);
         }
     }
 

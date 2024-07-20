@@ -214,29 +214,10 @@ public partial class MinionAnimationSystem : SystemBase
                             animation.PlayTime = math.max(interpolationTime - animations[index].PlayTime, 0);
                             animation.ForceCancle = false;
                         }
-                        /*
-                        if (NaviDatas[index].isStoped && animations[index].CurrectAnimation == controllData.WalkAnimationIndex)
-                        {
-                            animation.PreviousAnimation = animations[index].CurrectAnimation;
-                            animation.ReserveAnimatiom = -1;
-                            animation.StopedTime = animations[index].PlayTime + delta;
-                            animation.CurrectAnimation = controllData.IdleAnimationIndex;
-                            animation.PlayTime = 0;
-                            animation.ForceCancle = false;
-                        }
-                        if (NaviDatas[index].isStoped == false && animations[index].CurrectAnimation == controllData.IdleAnimationIndex)
-                        {
-                            animation.PreviousAnimation = animations[index].CurrectAnimation;
-                            animation.ReserveAnimatiom = -1;
-                            animation.StopedTime = animations[index].PlayTime + delta;
-                            animation.CurrectAnimation = controllData.WalkAnimationIndex;
-                            animation.PlayTime = 0;
-                            animation.ForceCancle = false;
-                        }*/
 
                         //에니메이션 전환을 특수하게 관리... 예약이 아니라
-                    }//================
-                }
+                    }
+                }// idle , walk 상태 일때 보간 - 떨림 방지
             }
         }
     }
