@@ -1,5 +1,6 @@
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 using UnityEngine;
 
 class EcsAnimDBConverter : MonoBehaviour
@@ -77,5 +78,22 @@ class EcsAnimDBConverterBaker : Baker<EcsAnimDBConverter>
                 clipsRef = clipEntityRef
             });
         clipEntitiesBuilder.Dispose();
+
+        AddComponent
+            (
+                GetEntity(authoring.gameObject, TransformUsageFlags.None),
+                new MinionAnimatorControllData
+                {
+                    Target = float3.zero,
+                    MoveSpeed = 1.4f,
+                    PressureSpeed = 1f,
+                    RotationSpeed = 5f,
+                    cellRadius = 0.5f,
+                    MinionRadius = 0.5f,
+
+                    IdleAnimationIndex = db.IdleAnimationIndex,
+                    WalkAnimationIndex = db.WalkAnimationIndex,
+                }
+            );
     }
 }

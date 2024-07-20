@@ -31,6 +31,14 @@ public struct MinionData : IComponentData
         get => isSpawnedPart && isEnablePart && DisableCounter < 0;
     }
 }
+public struct MinionNaviData : IComponentData
+{
+    public bool isMovable;
+    public bool isStoped;
+
+    public float3 PreviousPosition;
+}
+
 public struct MinionPart : IBufferElementData
 {
     public Entity Part;
@@ -44,7 +52,9 @@ public struct MinionPartIndex : IComponentData
 public struct MinionAnimation : IComponentData
 {
     public int PreviousAnimation;
+    //더 정확하게 할려면 부위별 위치 데이터를 저장
     public float StopedTime;
+
     public int CurrectAnimation;
     public float PlayTime;
     [Tooltip("다음 에니메이션 예약\n 캔슬 가능하면 바로 전환")]

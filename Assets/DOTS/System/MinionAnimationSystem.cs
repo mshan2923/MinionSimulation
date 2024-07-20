@@ -9,6 +9,7 @@ using UnityEditor.Experimental.GraphView;
 using System.Linq;
 using static MinionAnimationDB;
 using Unity.Mathematics;
+using Unity.Transforms;
 
 [UpdateAfter(typeof(MinionSetUpSystem))]
 public partial class MinionAnimationSystem : SystemBase
@@ -63,7 +64,10 @@ public partial class MinionAnimationSystem : SystemBase
             */
         }//Debug for Test
 
-        var AnimQuery = GetEntityQuery(typeof(MinionAnimation), typeof(MinionData));
+        var AnimQuery = GetEntityQuery(typeof(MinionAnimation), typeof(MinionData), typeof(MinionNaviData));
+        var animControllData = SystemAPI.GetSingleton<MinionAnimatorControllData>();
+
+        var minionNavi = AnimQuery.ToComponentDataArray<MinionNaviData>(Allocator.TempJob);
 
         if (AnimQuery.CalculateEntityCount() <= 0)
         {
@@ -82,6 +86,8 @@ public partial class MinionAnimationSystem : SystemBase
         {
             animations = Animations,
             clipDatas = clipData,
+            NaviDatas = minionNavi,
+            controllData = animControllData,
             delta = SystemAPI.Time.DeltaTime,
         }.ScheduleParallel(AnimQuery, Dependency);//데이터 수정만 , 위치 변경은 MinionSystem에서
 
@@ -96,6 +102,7 @@ public partial class MinionAnimationSystem : SystemBase
         Animations.Dispose();
         Minions.Dispose();
         clipData.Dispose();
+        minionNavi.Dispose();
     }
 
     [BurstCompile]
@@ -103,6 +110,9 @@ public partial class MinionAnimationSystem : SystemBase
     {
         [ReadOnly] public NativeArray<MinionAnimation> animations;
         [ReadOnly] public NativeArray<MinionClipData> clipDatas;
+        [ReadOnly] public MinionAnimatorControllData controllData;
+
+        [ReadOnly] public NativeArray<MinionNaviData> NaviDatas;
         public float delta;
 
         public void Execute(Entity entity, [EntityIndexInQuery] int index, ref MinionAnimation animation, in MinionData minionData)
@@ -167,6 +177,65 @@ public partial class MinionAnimationSystem : SystemBase
                     animation.StopedTime = animations[index].PlayTime + delta;
                     animation.PlayTime = 0;
                     animation.ForceCancle = false;
+                }
+
+                {
+                    if (animations[index].CurrectAnimation == controllData.IdleAnimationIndex ||
+                        animations[index].CurrectAnimation == controllData.WalkAnimationIndex)
+                    {
+                        //bool isStoped = (math.distance(transform.Position, NaviDatas[index].PreviousPosition) < controllData.MoveSpeed * delta);
+
+                        // 예약으로 하면 값이 반복되면서 강제로 에니메이션 전환
+                        // PlayTime을 보간시간 이내에서 이전의 에니메이션 영향력 조절
+
+                        float interpolationTime = clipDatas[animations[index].CurrectAnimation].interpolationTime;
+
+                        if ((NaviDatas[index].isStoped ) 
+                            && animations[index].CurrectAnimation == controllData.WalkAnimationIndex)
+                        {
+                            //animation.ReserveAnimatiom = controllData.IdleAnimationIndex;//Legacy
+
+                            animation.PreviousAnimation = controllData.WalkAnimationIndex;
+                            animation.ReserveAnimatiom = -1;
+                            animation.StopedTime = animations[index].PlayTime + delta;
+                            animation.CurrectAnimation = controllData.IdleAnimationIndex;
+                            animation.PlayTime = math.max(interpolationTime - animations[index].PlayTime, 0);
+                            animation.ForceCancle = false;
+                        }
+                        if ((NaviDatas[index].isStoped == false) 
+                            && animations[index].CurrectAnimation == controllData.IdleAnimationIndex)
+                        {
+                            //animation.ReserveAnimatiom = controllData.WalkAnimationIndex;//Legacy
+
+                            animation.PreviousAnimation = controllData.IdleAnimationIndex;
+                            animation.ReserveAnimatiom = -1;
+                            animation.StopedTime = animations[index].PlayTime + delta;
+                            animation.CurrectAnimation = controllData.WalkAnimationIndex;
+                            animation.PlayTime = math.max(interpolationTime - animations[index].PlayTime, 0);
+                            animation.ForceCancle = false;
+                        }
+                        /*
+                        if (NaviDatas[index].isStoped && animations[index].CurrectAnimation == controllData.WalkAnimationIndex)
+                        {
+                            animation.PreviousAnimation = animations[index].CurrectAnimation;
+                            animation.ReserveAnimatiom = -1;
+                            animation.StopedTime = animations[index].PlayTime + delta;
+                            animation.CurrectAnimation = controllData.IdleAnimationIndex;
+                            animation.PlayTime = 0;
+                            animation.ForceCancle = false;
+                        }
+                        if (NaviDatas[index].isStoped == false && animations[index].CurrectAnimation == controllData.IdleAnimationIndex)
+                        {
+                            animation.PreviousAnimation = animations[index].CurrectAnimation;
+                            animation.ReserveAnimatiom = -1;
+                            animation.StopedTime = animations[index].PlayTime + delta;
+                            animation.CurrectAnimation = controllData.WalkAnimationIndex;
+                            animation.PlayTime = 0;
+                            animation.ForceCancle = false;
+                        }*/
+
+                        //에니메이션 전환을 특수하게 관리... 예약이 아니라
+                    }//================
                 }
             }
         }

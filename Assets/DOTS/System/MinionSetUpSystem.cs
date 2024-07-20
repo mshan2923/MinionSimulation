@@ -16,6 +16,9 @@ using Unity.Mathematics;
 using static UnityEngine.Rendering.VolumeComponent;
 using Unity.VisualScripting;
 
+/// <summary>
+/// 미니언들의 부위들을 스폰
+/// </summary>
 [UpdateAfter(typeof(EcsSpawnerSystem))]
 partial class MinionSetUpSystem : SystemBase
 {

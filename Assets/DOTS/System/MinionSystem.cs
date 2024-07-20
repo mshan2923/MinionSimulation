@@ -230,7 +230,7 @@ public partial class MinionSystem : SystemBase
                         {
                             var previous = ClipDatas[anim.PreviousAnimation];
                             var previousTrans = previous.assetReference.Value.parts[partIndex.Index]
-                                        .frames[Mathf.FloorToInt((anim.PlayTime / previous.ClipLength) * ClipDataInterval)];
+                                        .frames[Mathf.FloorToInt((anim.StopedTime / previous.ClipLength) * ClipDataInterval)];
                             var lerpRate = Mathf.Clamp01(anim.PlayTime / clipData.interpolationTime);
 
                             localTrans = new LocalTransform

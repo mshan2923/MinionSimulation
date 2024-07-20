@@ -14,13 +14,15 @@ public partial class MinionNavigationSystem : SystemBase
 {
     // 우선 미니언들끼리 겹쳐지지 않고 한지점으로 이동 해야함
     // 장해물 판정은 나중에 하고
-
+    /*
     #region AddComponentLater
     public float3 Target;
-    public float Speed = 2.5f;
+    public float MoveSpeed = 1.4f;
+    public float PressureSpeed = 1.0f;
     public float RotationSpeed = 5f;
     public float cellRadius = 0.5f;
     #endregion
+    */
 
     private static readonly int[] cellOffsetTable =
     {
@@ -128,7 +130,8 @@ public partial class MinionNavigationSystem : SystemBase
 
         public float3 Target;
         public float MinionRadius;
-        public float Speed;
+        public float MoveSpeed;
+        public float PressureSpeed;
         public float RotationSpeed;
 
         public float DT;
@@ -140,7 +143,8 @@ public partial class MinionNavigationSystem : SystemBase
 
             var temp = particleData[index];
 
-            if (Vector3.SqrMagnitude(Target - temp.Position) < 0.01f)// Mathf.Approximately 는 제대로 작동X
+            if (Vector3.SqrMagnitude(Target - temp.Position) < 0.01f)
+                // Mathf.Approximately 는 제대로 작동X
             {
                 pressureVel[index] = temp;
                 return;
@@ -149,30 +153,17 @@ public partial class MinionNavigationSystem : SystemBase
             //속력은 항상 플레이어 쪽으로 향하므로 
             // 일정거리안은 약하게 서로 밀다가 , 겹쳐지기 전이면 이동 대신 거리두기 해야 할듯
 
-            if (Vector3.SqrMagnitude(pressureDir[index]) < 0.01f)
+            if (Vector3.SqrMagnitude(pressureDir[index]) < 0.0001f)
             {
                 var lookTarget = Quaternion.LookRotation(math.normalize(Target - temp.Position));
-                temp.Position += math.normalize(Target - temp.Position) * Speed * DT;
+                temp.Position += math.normalize(Target - temp.Position) * MoveSpeed * DT;
                 temp.Rotation = Quaternion.Lerp(temp.Rotation, lookTarget, DT * RotationSpeed);
 
-            }
-            else
+            }else if (Vector3.SqrMagnitude(pressureDir[index]) >= (MinionRadius * MinionRadius))
             {
-                //다른 미니언 존재 (막히지 않을때 포함)
-
-                if (false)//(Vector3.SqrMagnitude(pressureDir[index]) > MinionRadius * MinionRadius)
-                {
-                    var lerpNormal = math.lerp(math.normalize(Target - temp.Position), math.normalize(pressureDir[index]),
-                        Mathf.Clamp01(Vector3.Magnitude(pressureDir[index]) / (MinionRadius)));
-                    temp.Position += lerpNormal * Speed * DT;
-                    temp.Rotation = Quaternion.Lerp(temp.Rotation, Quaternion.LookRotation(math.normalize(pressureDir[index])), DT * RotationSpeed);
-                }
-                else
-                {
-                    temp.Position += math.normalize(pressureDir[index]) * Speed * DT;
-                    temp.Rotation = Quaternion.Lerp(temp.Rotation, Quaternion.LookRotation(math.normalize(pressureDir[index])), DT * RotationSpeed);
-                }
-            }
+                temp.Position += math.normalize(pressureDir[index]) * PressureSpeed * DT;
+                temp.Rotation = Quaternion.Lerp(temp.Rotation, Quaternion.LookRotation(math.normalize(pressureDir[index])), DT * RotationSpeed);
+            }//다른 미니언 존재 (막히지 않을때 포함)
 
             //Debug.Log($"Dir : {pressureDir[index]} , Target : {Target} \n pre Trans : {particleData[index]} , Added Trans : {temp}");
 
@@ -181,22 +172,51 @@ public partial class MinionNavigationSystem : SystemBase
     }
 
     [BurstCompile]
+    private partial struct ApplyNaviData : IJobEntity
+    {
+        [ReadOnly] public NativeArray<MinionNaviData> NaviDatas;
+        [ReadOnly] public NativeArray<float3> pressureDir;
+
+        public float MinionRadius;
+
+        public void Execute([EntityIndexInQuery] int index, in LocalTransform transform,  ref MinionNaviData naviData)
+        {
+            var navi = NaviDatas[index];
+            navi.PreviousPosition = transform.Position;
+
+            if (Vector3.SqrMagnitude(pressureDir[index]) < 0.0001f)
+            {
+                navi.isStoped = false;
+            }// 이동
+            else if (Vector3.SqrMagnitude(pressureDir[index]) > (4 * MinionRadius * MinionRadius))
+            {
+                navi.isStoped = true;
+            }else
+            {
+                navi.isStoped = true;
+            }
+
+            naviData = navi;
+        }
+    }
+    [BurstCompile]
     private partial struct ApplyPosition : IJobEntity
     {
         //원래의 HashedFluidSimulation 에선 FluidSimlationComponent 에서 위치랑 속력 , 가속도를 관리하고 있어
         // 먼저 속력을 계산해 참조로 FluidSimlationComponent 값 변경
         // 그리고 변경된 위치값을 다음 Job 에서 적용함
 
-        //[ReadOnly] public NativeArray<LocalTransform> particleData;
+        [ReadOnly] public NativeArray<LocalTransform> particleData;
         [ReadOnly] public NativeArray<LocalTransform> pressureVel;
 
         [ReadOnly] public NativeArray<MinionData> MinionDatas;
 
-        public void Execute([EntityIndexInQuery] int index, ref LocalTransform transform)
+        public void Execute([EntityIndexInQuery] int index, ref LocalTransform transform, ref MinionNaviData naviData)
         {
             if (MinionDatas[index].IsActive == false)
                 return;
 
+            naviData.PreviousPosition = particleData[index].Position;
             transform = pressureVel[index];
         }
     }
@@ -208,23 +228,30 @@ public partial class MinionNavigationSystem : SystemBase
     {
         base.OnStartRunning();
 
-        MinionGroup = GetEntityQuery(typeof(MinionData), typeof(LocalTransform));//TestNaviComponent
+        MinionGroup = GetEntityQuery(typeof(MinionData), typeof(MinionNaviData), typeof(LocalTransform));//TestNaviComponent
 
         if (MinionGroup.CalculateEntityCount() <= 0)
         {
             Enabled = false;
             Debug.LogWarning("Can't find 'MinionData'");
         }    
+
+        Entities
+            .WithAll<MinionNaviData>()
+            .ForEach((int entityInQueryIndex, ref MinionNaviData naviData, in LocalTransform transform) => 
+            {
+                naviData.PreviousPosition = transform.Position;
+            }).ScheduleParallel(Dependency).Complete();
     }
 
     protected override void OnUpdate()
     {
-        //--시발 또 너냐?
 
         #region 초기화
 
         var minionTransform = MinionGroup.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
         var minionDatas = MinionGroup.ToComponentDataArray<MinionData>(Allocator.TempJob);
+        var minionNavi = MinionGroup.ToComponentDataArray<MinionNaviData>(Allocator.TempJob);
         int minionAmount = minionTransform.Length;
 
         var minionAddTransform = new NativeArray<LocalTransform>(minionAmount, Allocator.TempJob);
@@ -234,17 +261,16 @@ public partial class MinionNavigationSystem : SystemBase
         var cellOffsetTableNative = new NativeArray<int>(cellOffsetTable, Allocator.TempJob);
         #endregion
 
-        if (math.isfinite(minionTransform[0].Position).x == false)
-            Debug.LogError($"{minionTransform[0].Position} : {minionDatas[0].isEnablePart}");
-
         #region 설정
+
+        var animControllData = SystemAPI.GetSingleton<MinionAnimatorControllData>();
 
         var minionDirJob = new MemsetNativeArray<float3> { Source = minionDir , Value = Vector3.zero};
         JobHandle minionDirHandle = minionDirJob.Schedule(minionAmount, 64);
 
         var hashPositionsJob = new HashPositions
         {
-            cellRadius = cellRadius,
+            cellRadius = animControllData.cellRadius,
             particleData = minionTransform,
             MinionDatas = minionDatas,
             hashMap = hashMap.AsParallelWriter()
@@ -263,8 +289,8 @@ public partial class MinionNavigationSystem : SystemBase
             pressureDir = minionDir,
             
             DT = SystemAPI.Time.DeltaTime,
-            cellRadius = cellRadius,
-            minionRadius = cellRadius
+            cellRadius = animControllData.cellRadius,
+            minionRadius = animControllData.MinionRadius
         };
         var computePressureHandle = computePressureJob.Schedule(minionAmount, 64, hashPositionsHandle);
 
@@ -275,27 +301,37 @@ public partial class MinionNavigationSystem : SystemBase
             MinionDatas = minionDatas,
             pressureDir = minionDir,
 
-            Target = Target,
-            MinionRadius = cellRadius,
-            Speed = Speed,
-            RotationSpeed = RotationSpeed,
+            Target = animControllData.Target,
+            MinionRadius = animControllData.MinionRadius,
+            MoveSpeed = animControllData.MoveSpeed,
+            PressureSpeed = animControllData.PressureSpeed,
+            RotationSpeed = animControllData.RotationSpeed,
             DT = SystemAPI.Time.DeltaTime,
         };
         var computeCollisionHandle = computeCollisionJob.Schedule(minionAmount, 64, computePressureHandle);
         #endregion
 
+        var applyNaviDataHandle = new ApplyNaviData
+        {
+            pressureDir = minionDir,
+            NaviDatas = minionNavi,
+            MinionRadius = animControllData.MinionRadius
+        }.ScheduleParallel(MinionGroup, computeCollisionHandle);
+
         var applyPositionHandle = new ApplyPosition
         {
-            //particleData = minionTransform,
+            particleData = minionTransform,
             pressureVel = minionAddTransform,
             MinionDatas = minionDatas,
-        }.ScheduleParallel(MinionGroup, computeCollisionHandle);
+        }.ScheduleParallel(MinionGroup, applyNaviDataHandle);
         applyPositionHandle.Complete();
 
         #region Dispose
         minionTransform.Dispose();
         minionAddTransform.Dispose();
         minionDatas.Dispose();
+        minionNavi.Dispose();
+
         hashMap.Dispose();
         minionDir.Dispose();
         cellOffsetTableNative.Dispose();

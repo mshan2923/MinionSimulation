@@ -77,6 +77,11 @@ public class MinionAnimationDB : ScriptableObject
 
     [SerializeField] private MinionSpawnObjDB[] SpawnObjDBs;
 
+    [Space(10)]
+    public int IdleAnimationIndex;
+    public int WalkAnimationIndex;
+
+    [Space(20)]
     public GameObject DefaultObject;
  
 
@@ -171,6 +176,14 @@ public class MinionAnimationDB : ScriptableObject
 
     public Map<string, MinionSpawnObjDB.SpawnSlot>.MapSlot GetSpawnSlotData(int ClipIndex, int BodyIndex)
     {
+        if (ClipIndex < SpawnObjDBs.Length)
+        {
+            if (SpawnObjDBs[ClipIndex] == null)
+            {
+                Debug.LogError("Need Setup SpawnObjDB");
+            }
+        }
+
         return SpawnObjDBs[ClipIndex].SpawnParts.Get()[BodyIndex];
     }
     public GameObject GetSpawnObj(int ClipIndex, int BoneIndex, bool AllowNull)
@@ -220,7 +233,11 @@ public class MinionAnimationClipEdtor : PropertyDrawer
 
     public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
     {
-        return EditorGUIUtility.singleLineHeight * (property.isExpanded ? 7 : 1);
+        var members = typeof(MinionAnimationDB.ClipData).GetMembers
+                (BindingFlags.Instance | BindingFlags.Public);
+        int fieldCount = members.Count(t => t.MemberType == MemberTypes.Field);
+
+        return EditorGUIUtility.singleLineHeight * (property.isExpanded ? fieldCount + 1 : 1);
     }
     public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
     {

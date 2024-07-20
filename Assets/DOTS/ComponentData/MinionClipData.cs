@@ -39,3 +39,17 @@ public struct MinionClipFrameData
     public LocalTransform OffsetTransform;
     public BlobArray<LocalTransform> frames;
 }
+
+
+public struct MinionAnimatorControllData : IComponentData
+{
+    public float3 Target;
+    public float MoveSpeed;// = 1.4f;
+    public float PressureSpeed;// = 1.0f;
+    public float RotationSpeed;// = 5f;
+    public float cellRadius;// = 0.5f;
+    public float MinionRadius;
+
+    public int IdleAnimationIndex;
+    public int WalkAnimationIndex;
+}

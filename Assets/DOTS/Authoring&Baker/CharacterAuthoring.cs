@@ -53,6 +53,16 @@ class CharacterAuthoringBaker : Baker<CharacterAuthoring>
                         ImpactLocation = float3.zero
                     }
                 );
+            AddComponent
+                (
+                    GetEntity(authoring, TransformUsageFlags.Renderable),
+                    new MinionNaviData
+                    {
+                        isMovable = true,
+                        isStoped = false,
+                        PreviousPosition = Vector3.zero,
+                    }
+                );
 
             AddComponent
                 (
