@@ -9,6 +9,7 @@ public class DebugCloseCamera : MonoBehaviour
     Vector3 AddedPos;
 
     public TransformData CloseTransform;
+    Quaternion TempQuaternion;
 
     public float ZoomRate;
     public float ZoomSpeed = 1f;
@@ -24,12 +25,14 @@ public class DebugCloseCamera : MonoBehaviour
     {
         if (Input.GetMouseButtonDown(0))
         {
+            var cameraTrans = Camera.main.transform;
+
             origin = new TransformData(Camera.main.transform);
             AddedPos = Vector3.zero;
 
             var ray = Camera.main.ScreenPointToRay(Input.mousePosition);
 
-            var cameraTrans = Camera.main.transform;
+
             if (Physics.Raycast(cameraTrans.position, ray.direction, out var hitInfo))
                 StartPoint = hitInfo.point;
         }

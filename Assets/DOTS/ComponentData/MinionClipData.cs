@@ -45,6 +45,8 @@ public struct MinionAnimatorControllData : IComponentData
 {
     public float3 Target;
     public float MoveSpeed;// = 1.4f;
+    public const float DefaultSpeed = 1.4f;
+
     public float PressureSpeed;// = 1.0f;
     public float RotationSpeed;// = 5f;
     public float cellRadius;// = 0.5f;

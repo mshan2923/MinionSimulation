@@ -189,6 +189,7 @@ public partial class MinionAnimationSystem : SystemBase
                         // PlayTime을 보간시간 이내에서 이전의 에니메이션 영향력 조절
 
                         float interpolationTime = clipDatas[animations[index].CurrectAnimation].interpolationTime;
+                        float playMultiply = controllData.MoveSpeed / MinionAnimatorControllData.DefaultSpeed;
 
                         if ((NaviDatas[index].isStoped ) 
                             && animations[index].CurrectAnimation == controllData.WalkAnimationIndex)
@@ -197,7 +198,7 @@ public partial class MinionAnimationSystem : SystemBase
 
                             animation.PreviousAnimation = controllData.WalkAnimationIndex;
                             animation.ReserveAnimatiom = -1;
-                            animation.StopedTime = animations[index].PlayTime + delta;
+                            animation.StopedTime = animations[index].PlayTime;// + delta;
                             animation.CurrectAnimation = controllData.IdleAnimationIndex;
                             animation.PlayTime = math.max(interpolationTime - animations[index].PlayTime, 0);
                             animation.ForceCancle = false;
@@ -209,15 +210,17 @@ public partial class MinionAnimationSystem : SystemBase
 
                             animation.PreviousAnimation = controllData.IdleAnimationIndex;
                             animation.ReserveAnimatiom = -1;
-                            animation.StopedTime = animations[index].PlayTime + delta;
+                            animation.StopedTime = animations[index].PlayTime;// + delta;
                             animation.CurrectAnimation = controllData.WalkAnimationIndex;
                             animation.PlayTime = math.max(interpolationTime - animations[index].PlayTime, 0);
                             animation.ForceCancle = false;
                         }
 
+                        if (animations[index].PlayTime + delta * playMultiply < clipData.ClipLength)
+                            animation.PlayTime = animations[index].PlayTime + delta * playMultiply;
                         //에니메이션 전환을 특수하게 관리... 예약이 아니라
                     }
-                }// idle , walk 상태 일때 보간 - 떨림 방지
+                }// idle , walk 상태 일때 보간 - 떨림 방지  +++++ 속도에 따른 에니메이션 배속 추가
             }
         }
     }

@@ -143,20 +143,16 @@ public partial class MinionNavigationSystem : SystemBase
 
             var temp = particleData[index];
 
-            if (Vector3.SqrMagnitude(Target - temp.Position) < 0.01f)
+            var look2d = float3To2(Target - temp.Position, 0);
+            if (Vector3.SqrMagnitude(look2d) < 0.0001f)
                 // Mathf.Approximately 는 제대로 작동X
             {
                 pressureVel[index] = temp;
                 return;
             }
 
-            //속력은 항상 플레이어 쪽으로 향하므로 
-            // 일정거리안은 약하게 서로 밀다가 , 겹쳐지기 전이면 이동 대신 거리두기 해야 할듯
-
             if (Vector3.SqrMagnitude(pressureDir[index]) < 0.0001f)
             {
-                var look2d = float3To2(Target - temp.Position, 0);
-
                 var lookTarget = Quaternion.LookRotation(math.normalize(look2d));
                 temp.Position += math.normalize(look2d) * MoveSpeed * DT;
                 temp.Rotation = Quaternion.Lerp(temp.Rotation, lookTarget, DT * RotationSpeed);

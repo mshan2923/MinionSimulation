@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 657968405256032787}
   - component: {fileID: 8802429257181605214}
+  - component: {fileID: 9071564272809461220}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -48,3 +49,25 @@ MonoBehaviour:
   SpeedOffset: 2
   SeparateTime: 2
   FalloffTime: 1
+  Gravity:
+    x: 0
+    y: -9.8
+    z: 0
+  DisableHeightUnderOrigin: -5
+--- !u!114 &9071564272809461220
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2943232358915294565}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 48e553b2033c2694d9bbe78175458fbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  MoveSpeed: 2.5
+  PressureSpeed: 1
+  RotationSpeed: 5
+  cellRadius: 0.5
+  MinionRadius: 0.5

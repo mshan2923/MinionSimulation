@@ -1,3 +1,4 @@
+using Custom;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -122,7 +123,7 @@ public partial class MinionSystem : SystemBase
         }
     }
 
-    //[BurstCompile]
+    [BurstCompile]
     public partial struct SetUpHashMap : IJobEntity
     {
         public NativeParallelHashMap<Entity, MinionData>.ParallelWriter MinionsParall;
@@ -140,7 +141,7 @@ public partial class MinionSystem : SystemBase
         }
     }
 
-    //[BurstCompile]
+    [BurstCompile]
     public partial struct UpdateMinionAnimation_Ref : IJobEntity
     {
         [ReadOnly] public NativeParallelHashMap<Entity, MinionAnimation>.ReadOnly animations;
@@ -182,9 +183,8 @@ public partial class MinionSystem : SystemBase
 
                 LocalTransform localTrans = LocalTransform.Identity;
                 {
-                    localTrans = clipData.assetReference.Value.parts[partIndex.Index]
-                        .frames[Mathf.FloorToInt(anim.PlayTime / ClipDataInterval)];
-                    //float clampLength = 0.2f;
+
+                    localTrans = GetClipTranform(clipData, partIndex, anim.PlayTime);
 
                     if (anim.ReserveAnimatiom >= 0)
                     {
@@ -195,8 +195,8 @@ public partial class MinionSystem : SystemBase
                             if (anim.PlayTime > startLerp)
                             {
                                 var lerpRate = Mathf.Clamp01((anim.PlayTime - startLerp) / clipData.interpolationTime);
-                                var reserveTrans = ClipDatas[anim.ReserveAnimatiom].assetReference.Value.parts[partIndex.Index]
-                                    .frames[Mathf.FloorToInt((anim.PlayTime - startLerp) / ClipDataInterval)];
+
+                                var reserveTrans = GetClipTranform(ClipDatas[anim.ReserveAnimatiom], partIndex, anim.PlayTime - startLerp);
 
                                 localTrans = new LocalTransform
                                 {
@@ -205,17 +205,14 @@ public partial class MinionSystem : SystemBase
                                     Scale = Mathf.Lerp(localTrans.Scale, reserveTrans.Scale, lerpRate)
                                 };
                             }
-                        }
-                    }//Not Cancellable Transforming
+                        }//Not Cancellable Transforming
 
-                    if (anim.PreviousAnimation >= 0)
-                    {
                         if (ClipDatas[anim.PreviousAnimation].ClipLength - anim.StopedTime > ClipDataInterval
                             && ClipDatas[anim.PreviousAnimation].Cancellable == false)
                         {
                             var previous = ClipDatas[anim.PreviousAnimation];
-                            var previousTrans = previous.assetReference.Value.parts[partIndex.Index]
-                                        .frames[Mathf.FloorToInt(anim.StopedTime / ClipDataInterval)];
+
+                            var previousTrans = GetClipTranform(previous, partIndex, anim.StopedTime);
                             var lerpRate = Mathf.Clamp01(anim.PlayTime / clipData.forceInterpolationTime);
 
                             localTrans = new LocalTransform
@@ -229,8 +226,9 @@ public partial class MinionSystem : SystemBase
                         if (anim.PlayTime < clipData.interpolationTime && ClipDatas[anim.PreviousAnimation].Cancellable)
                         {
                             var previous = ClipDatas[anim.PreviousAnimation];
-                            var previousTrans = previous.assetReference.Value.parts[partIndex.Index]
-                                        .frames[Mathf.FloorToInt((anim.StopedTime / previous.ClipLength) * ClipDataInterval)];
+
+                            var previousTrans = GetClipTranform(previous, partIndex, anim.StopedTime);
+
                             var lerpRate = Mathf.Clamp01(anim.PlayTime / clipData.interpolationTime);
 
                             localTrans = new LocalTransform
@@ -241,11 +239,11 @@ public partial class MinionSystem : SystemBase
                             };
                         }//Cancellable Transforming
                     }
+
                 }//Calculate Transforming Animation  
                  //     취소 가능 => 바로 전환 되므로 이전 정보랑 Lerp
                  //     취소 불가 => 끝나기 전에 Lerp (현)
 
-                //if (math.isfinite(temp).x)
 
                 localTrans.Position = math.mul(worldTrans.Rotation, localTrans.Position);
 
@@ -267,13 +265,12 @@ public partial class MinionSystem : SystemBase
                 return true;
             if (math.distancesq(Target, CameraPos) < 0.01f)
                 return true;
+            
+            //Debug.Log($"Dot({CameraRot} , {Quaternion.LookRotation(math.normalize(Target - CameraPos)).eulerAngles})" +
+            //    $" => {Quaternion.Angle(CameraRot, Quaternion.LookRotation(math.normalize(Target - CameraPos)))}");
 
-            var dot = Quaternion.Dot(CameraRot, Quaternion.LookRotation(math.normalize(Target - CameraPos)));
-            dot = Mathf.Acos(dot);
-            dot = dot > 0 ? dot : -dot;
-            dot *= Mathf.Rad2Deg;
-
-            return dot <= HorizonFov * 0.5f + offset;
+            return Quaternion.Angle(CameraRot, Quaternion.LookRotation(math.normalize(Target - CameraPos))) 
+                <= HorizonFov + offset;
         }
 
         LocalTransform CancellableTransforming(MinionAnimation anim , MinionPartIndex partIndex, float clampLength, LocalTransform localTrans)
@@ -291,9 +288,17 @@ public partial class MinionSystem : SystemBase
             };
         }
 
+        LocalTransform GetClipTranform(MinionClipData clipData, MinionPartIndex partIndex, float time)
+        {
+            int clipLength = clipData.assetReference.Value.parts[partIndex.Index].frames.Length;
+
+            return clipData.assetReference.Value.parts[partIndex.Index]
+                .frames[Mathf.Clamp(Mathf.FloorToInt(time / ClipDataInterval), 0, clipLength - 1)];
+        }
 
     }//화면 밖에 나가면 위치 변경 X
 
+    [BurstCompile]
     public partial struct UpdateSeperteTrasform : IJobEntity
     {
         public EntityCommandBuffer.ParallelWriter ecb;
@@ -330,6 +335,8 @@ public partial class MinionSystem : SystemBase
                         return;
                     }
 
+                    
+                    //bool isRender = Custom.Math.IsRenderAreaLite(CameraPos, CameraRot, HorizonFov * 0.5f, HorizonFov, PartsTransform[index].Position);
                     if (IsVisiable(PartsTransform[index].Position, 0) == false)
                     {
                         ecb.SetEnabled(index, entity, false);
@@ -362,12 +369,13 @@ public partial class MinionSystem : SystemBase
 
         public bool IsVisiable(float3 Target, float offset)
         {
-            var dot = Quaternion.Dot(CameraRot, Quaternion.LookRotation(math.normalize(Target - CameraPos)));
-            dot = Mathf.Acos(dot);
-            dot = dot > 0 ? dot : -dot;
-            dot *= Mathf.Rad2Deg;
+            if (math.isfinite(Target).x == false)
+                return true;
+            if (math.distancesq(Target, CameraPos) < 0.01f)
+                return true;
 
-            return dot <= HorizonFov * 0.5f + offset;
+            return Quaternion.Angle(CameraRot, Quaternion.LookRotation(math.normalize(Target - CameraPos)))
+                <= HorizonFov + offset;
         }
     }
 }
