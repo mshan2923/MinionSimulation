@@ -157,7 +157,7 @@ public partial class MinionNavigationSystem : SystemBase
                 temp.Position += math.normalize(look2d) * MoveSpeed * DT;
                 temp.Rotation = Quaternion.Lerp(temp.Rotation, lookTarget, DT * RotationSpeed);
 
-            }else if (Vector3.SqrMagnitude(pressureDir[index]) >= (MinionRadius * MinionRadius))
+            }else// if (Vector3.SqrMagnitude(pressureDir[index]) >= (MinionRadius * MinionRadius))
             {
                 temp.Position += math.normalize(pressureDir[index]) * PressureSpeed * DT;
                 temp.Rotation = Quaternion.Lerp(temp.Rotation, Quaternion.LookRotation(math.normalize(pressureDir[index])), DT * RotationSpeed);

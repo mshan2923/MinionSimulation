@@ -126,6 +126,7 @@ public readonly partial struct MinionAspect : IAspect
 
         [ReadOnly] public NativeArray<MinionPart> Parts;
         [ReadOnly] public NativeArray<KeyValuePair<int, Entity>> ParentIndexData;
+        public bool isEnable;
         public void Execute(int index)
         {
             Entity Parent = ParentIndexData.AsParallel().Where(t => t.Key <= index).Last().Value;
@@ -147,6 +148,11 @@ public readonly partial struct MinionAspect : IAspect
         //[NativeDisableUnsafePtrRestriction] public MinionAspect targetAspect;
         [ReadOnly] public NativeArray<Entity> spawnedEntity;
 
+        /// <summary>
+        /// Initial Spawn
+        /// </summary>
+        public bool isEnable;
+
         public void Execute(Entity entity, [EntityIndexInQuery] int index, ref MinionData minionData, ref DynamicBuffer<MinionPart> parts)
         {
             if (targetParent == entity)
@@ -163,7 +169,7 @@ public readonly partial struct MinionAspect : IAspect
                 }
 
                 minionData.isSpawnedPart = true;
-
+                minionData.isEnablePart = isEnable;
             }
         }
     }

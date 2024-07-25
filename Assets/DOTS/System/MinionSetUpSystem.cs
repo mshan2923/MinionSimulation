@@ -124,41 +124,19 @@ partial class MinionSetUpSystem : SystemBase
             var lHandle = new MinionAspect.PartSpawnSetupJob_Ref()
             {
                 targetParent = v.entity,
-                spawnedEntity = spawnedPart
+                spawnedEntity = spawnedPart,
+                isEnable = true// initial Spawn
             }.ScheduleParallel(spawnHandle);
             spawnHandle = JobHandle.CombineDependencies(spawnHandle, lHandle);
 
             spawnedPart.Dispose(lHandle);//----job 끝난후 할당 해제
         }//SetUp
 
-        {
-            ecb = new EntityCommandBuffer(Allocator.TempJob);
-
-            allPartQuery.ResetFilter();
-
-            var fillted = new NativeList<Entity>(Allocator.Temp);
-            MinionAspect.GetSharedMutiplyFillter(allPartQuery, MinionEntity, ref fillted);
-            var spawned = fillted.ToArray(Allocator.TempJob);
-
-            var toggleHandle = new MinionAspect.ToggleJob()
-            {
-                ecb = ecb.AsParallelWriter(),
-                spawnedEntity = spawned,
-                value = false
-            }.Schedule(fillted.Length, 32, spawnHandle);
-
-            toggleHandle.Complete();
-            ecb.Playback(EntityManager);
-
-            ecb.Dispose();
-            fillted.Dispose();
-            spawned.Dispose(toggleHandle);
-        }//Toggle  -- 없애도 되지 않을까?
+        spawnHandle.Complete();
+        //isEnable 가 false 면 MinionEntityPoolSystem 에서 스폰시킴
 
         MinionEntity.Dispose();
         aspects.Dispose();
-
-        ToggleAllMinions();
     }
     protected override void OnUpdate()
     {
@@ -167,11 +145,11 @@ partial class MinionSetUpSystem : SystemBase
 
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            ToggleAllMinions();
+            //ToggleAllMinions();
         }//Toggle All Minions - Mouse Right Button
     }
 
-    public void ToggleAllMinions()
+    void ToggleAllMinions()
     {
         var minions = Entities.WithAll<MinionData>().ToQuery().ToEntityArray(Allocator.TempJob);
 
@@ -196,7 +174,7 @@ partial class MinionSetUpSystem : SystemBase
             .CreateCommandBuffer(EntityManager.WorldUnmanaged);
             //new EntityCommandBuffer(Allocator.TempJob);
 
-            var partsList = new NativeList<Entity>(Allocator.Temp);
+            var partsList = new NativeList<Entity>(Allocator.TempJob);
             {
                 foreach (var e in minions)
                 {
@@ -231,6 +209,8 @@ partial class MinionSetUpSystem : SystemBase
 
             //ecb.Playback(EntityManager);
             //ecb.Dispose();
+            partsList.Dispose(toggleHandle);
+            parts.Dispose(toggleHandle);
         }
 
         minions.Dispose();

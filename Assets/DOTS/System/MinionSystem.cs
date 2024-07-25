@@ -23,18 +23,6 @@ public partial class MinionSystem : SystemBase
     {
         base.OnStartRunning();
         Minions = GetEntityQuery(typeof(MinionData));
-        /*
-         var MinionEntities = Minions.ToEntityArray(Allocator.TempJob);
-
-        
-        foreach(var e in MinionEntities)
-        {
-            var aspect = SystemAPI.GetAspect<MinionAspect>(e);
-            aspect.ChangeAnimation(0);
-        }
-
-        MinionEntities.Dispose();
-        */
 
         if (Minions.CalculateEntityCount() <= 0)
         {
@@ -51,14 +39,6 @@ public partial class MinionSystem : SystemBase
         {
             var MinionEntities = Minions.ToEntityArray(Allocator.TempJob);
             var MinionDatas = Minions.ToComponentDataArray<MinionData>(Allocator.TempJob);
-
-            // 모든 Minion 마다 Part들을 위치 업데이트...
-            //한번에 적용하기 위해 , 데이터 준비한후 , 적용
-            // 먼저 Minion 목록 에서 
-            // 모든 부위
-            // BoneIndex
-            // 캐릭터 엔티티
-            // HashMap<캐릭터 엔티티, MinionAnimation>
 
             var MinionsParall = new NativeParallelHashMap<Entity, MinionData>(MinionEntities.Length, Allocator.TempJob);
             var AnimationDataParall = new NativeParallelHashMap<Entity, MinionAnimation>(MinionEntities.Length, Allocator.TempJob);

@@ -384,6 +384,16 @@ PrefabInstance:
       propertyPath: m_Name
       value: GameManager
       objectReference: {fileID: 0}
+    - target: {fileID: 5571511167426304874, guid: e0ce229c2a20ae7479f905832aefb326,
+        type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 25
+      objectReference: {fileID: 0}
+    - target: {fileID: 5571511167426304874, guid: e0ce229c2a20ae7479f905832aefb326,
+        type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 25
+      objectReference: {fileID: 0}
     - target: {fileID: 8802429257181605214, guid: e0ce229c2a20ae7479f905832aefb326,
         type: 3}
       propertyPath: Speed
@@ -391,7 +401,22 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8802429257181605214, guid: e0ce229c2a20ae7479f905832aefb326,
         type: 3}
+      propertyPath: Gravity.y
+      value: -9.8
+      objectReference: {fileID: 0}
+    - target: {fileID: 8802429257181605214, guid: e0ce229c2a20ae7479f905832aefb326,
+        type: 3}
       propertyPath: DisableHeightUnderOrigin
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 9071564272809461220, guid: e0ce229c2a20ae7479f905832aefb326,
+        type: 3}
+      propertyPath: MoveSpeed
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 9071564272809461220, guid: e0ce229c2a20ae7479f905832aefb326,
+        type: 3}
+      propertyPath: PressureSpeed
       value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []

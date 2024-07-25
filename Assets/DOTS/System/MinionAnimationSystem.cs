@@ -11,7 +11,7 @@ using static MinionAnimationDB;
 using Unity.Mathematics;
 using Unity.Transforms;
 
-[UpdateAfter(typeof(MinionSetUpSystem))]
+[UpdateAfter(typeof(MinionSystem))]
 public partial class MinionAnimationSystem : SystemBase
 {
     protected override void OnStartRunning()
@@ -21,48 +21,9 @@ public partial class MinionAnimationSystem : SystemBase
     protected override void OnDestroy()
     {
         base.OnDestroy();
-        /*
-        Entities.WithAll<MinionClipData>().ForEach((in MinionClipData clipData) =>
-        {
-            clipData.assetReference.Dispose();
-        }).ScheduleParallel(Dependency).Complete();
-        *///굳이 안해도 종료시 되나?
     }
     protected override void OnUpdate()
     {
-        {
-            /*
-            var ClipEntity = SystemAPI.GetSingleton<MinionClipEntities>();
-
-            Debug.Log($"ClipEntity Length : {ClipEntity.clipsRef.Value.entity.Length}");
-            Debug.Log($"ClipEntity index : {ClipEntity.clipsRef.Value.entity[0].Index}");//접근 불가
-
-
-            var clipDataQuery = GetEntityQuery(typeof(MinionClipData));
-            var clipData = clipDataQuery.ToComponentDataArray<MinionClipData>(Allocator.Temp);
-            Debug.Log($"MinionClipData Query : {clipDataQuery.CalculateEntityCount()}");
-
-            Debug.Log($"Clip Data : {clipData[0].clipIndex}");
-
-            ref var clipParts = ref clipData[0].assetReference.Value.parts;//<---------- 이렇게 Job에게 줄수 있나?
-
-            Debug.Log($"Clip Data - Part Length : {clipData[0].assetReference.Value.parts.Length}");
-            Debug.Log($"Clip Data - BodyIndex : {clipParts[0].BodyIndex} , Frame Length : {clipParts[0].frames.Length}");
-
-            for (int i = 0; i < clipParts.Length; i++)
-            {
-                if (clipParts[i].frames.Length > 0)
-                {
-                    Debug.Log($"Body index : {clipParts[i].BodyIndex} -> {clipParts[i].frames[0]}");
-                    break;
-                }
-            }
-
-            //===== SharedComponent으로 편하게 찾게 해야 하나?  ,  제일 문제인건 Job 내부에서 여러 에니메이션 접근...어떻하지? 쿼리로?
-
-            clipData.Dispose();
-            */
-        }//Debug for Test
 
         var AnimQuery = GetEntityQuery(typeof(MinionAnimation), typeof(MinionData), typeof(MinionNaviData));
         var animControllData = SystemAPI.GetSingleton<MinionAnimatorControllData>();
@@ -183,8 +144,6 @@ public partial class MinionAnimationSystem : SystemBase
                     if (animations[index].CurrectAnimation == controllData.IdleAnimationIndex ||
                         animations[index].CurrectAnimation == controllData.WalkAnimationIndex)
                     {
-                        //bool isStoped = (math.distance(transform.Position, NaviDatas[index].PreviousPosition) < controllData.MoveSpeed * delta);
-
                         // 예약으로 하면 값이 반복되면서 강제로 에니메이션 전환
                         // PlayTime을 보간시간 이내에서 이전의 에니메이션 영향력 조절
 
@@ -220,10 +179,12 @@ public partial class MinionAnimationSystem : SystemBase
                             animation.PlayTime = animations[index].PlayTime + delta * playMultiply;
                         //에니메이션 전환을 특수하게 관리... 예약이 아니라
                     }
-                }// idle , walk 상태 일때 보간 - 떨림 방지  +++++ 속도에 따른 에니메이션 배속 추가
+                }// idle , walk 상태 일때 보간 - 떨림 방지
             }
         }
     }
+
+    //[BurstCompile]
     public partial struct SeperateParts : IJobEntity
     {
         public NativeArray<MinionData> datas;
@@ -242,6 +203,7 @@ public partial class MinionAnimationSystem : SystemBase
             {
                 //minion.DisableCounter = separateData.SeparateTime + separateData.FalloffTime;
                 minion.isEnablePart = false;
+                minion.DisableCounter = -1;
             }//Disable Minion -> 부위들만 비활성화 하는거라서
              //MinionSystem에서 부위 tranform 업데이트시 MinionData.isEnablePart값이 false면 비활성화
 
