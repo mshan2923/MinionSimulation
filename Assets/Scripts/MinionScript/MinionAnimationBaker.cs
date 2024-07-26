@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using Unity.Transforms;
 using Unity.VisualScripting;
@@ -13,7 +14,10 @@ public class MinionAnimationBaker : MonoBehaviour
     MinionAnimationDB db;
     public Animator BakeCharacter;
 
-    [SerializeField] private Transform[] Childs;
+    /// <summary>
+    /// Read Only
+    /// </summary>
+    [SerializeField, ReadOnly(true)] private Transform[] Childs;
 
     [HideInInspector]
     public int DebugClipIndex;
